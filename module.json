@@ -2,7 +2,7 @@
   "id": "h0d-loot",
   "title": "H0D Loot",
   "description": "Butin persistant sur les carcasses, récupération des possessions réelles des humanoïdes et ressources pour la campagne Zero Dawn sous Custom System Builder.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
@@ -20,5 +20,5 @@
   ],
   "url": "https://github.com/freeberserk/h0d-loot",
   "manifest": "https://github.com/freeberserk/h0d-loot/releases/latest/download/module.json",
-  "download": "https://github.com/freeberserk/h0d-loot/releases/download/v0.2.0/h0d-loot.zip"
+  "download": "https://github.com/freeberserk/h0d-loot/releases/latest/download/h0d-loot.zip"
 }

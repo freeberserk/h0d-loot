@@ -129,7 +129,7 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus)
   };
 
-  console.log("H0D Loot | v0.2.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.3.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -447,9 +447,10 @@ async function generateForToken(token, type) {
 
     const rareNotes = [];
     if (type === "machine") {
-      for (const rare of findRecoverableRareParts(actor)) {
-        addLoot(lootMap, rare.resource, 1, "Pièce préservée");
-        rareNotes.push(rare.label);
+      for (const part of findRecoverableMachineParts(actor)) {
+        if (part.kind === "resource") addLoot(lootMap, part.resource, 1, part.note);
+        else lootMap.set(part.entryId, part);
+        rareNotes.push(part.label);
       }
     }
 
@@ -594,61 +595,59 @@ function addLoot(map, resource, quantity, note="") {
   }
 }
 
-function findRecoverableRareParts(actor) {
-  const actorName = norm(actor.name);
-  const found = [];
-  const seen = new Set();
-
-  for (const item of actor.items ?? []) {
-    if (item.system?.template === RESOURCE_TEMPLATE_ID) continue;
+// La fiche Machine est l'autorité pour les pièces physiques : jamais les attaques abstraites.
+// Une pièce à 0 PV conserve son issue Detache/Detruit, mais sa récupération reste en attente.
+function machinePartIsChassis(item) {
+  return /chassis/.test(norm([item.name, item.system?.props?.H0D_Composant_Type].join(" ")));
+}
+function damagedMachineResource(item) {
+  const p = item.system?.props ?? {};
+  const text = norm([item.name,p.H0D_Composant_Type,p.H0D_Composant_Loot].join(" "));
+  const choices = [
+    [/blaze/, "Fluide élémentaire — Blaze"],
+    [/chillwater|cryo|gel/, "Fluide élémentaire — Chillwater"],
+    [/sparker|choc|batterie/, "Cellule d’énergie faible"],
+    [/metalburn|acide/, "Fluide élémentaire — Metalburn"],
+    [/oeil|optique|radar|capteur|lentille/, "Lentilles optiques"],
+    [/circuit|relais|electronique/, "Circuit ancien abîmé"],
+    [/fibre|cable/, "Fibres synthétiques"]
+  ];
+  const named = String(p.H0D_Composant_Loot ?? "").trim();
+  const simplifiedNames = DEFAULT_TABLES.machine.map(([name]) => norm(name));
+  const fromField = simplifiedNames.includes(norm(named)) ? resourceByName.get(norm(named)) : null;
+  if(fromField) return fromField;
+  for(const [pattern,name] of choices) if(pattern.test(text)) {
+    const found = resourceByName.get(norm(name)); if(found) return found;
+  }
+  return resourceByName.get(norm("Plaques métalliques")) ?? null;
+}
+function findRecoverableMachineParts(actor) {
+  const entries = [];
+  const bool = v => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true";
+  for(const item of actor.items ?? []) {
     const p = item.system?.props ?? {};
-    const stateInfo = machinePartState(p);
-    if (!stateInfo.recoverable) continue;
-
-    const hay = norm([
-      item.name,
-      p.H0D_Composant_Type,
-      p.H0D_Composant_Emplacement,
-      p.H0D_ArmeMachine_Type,
-      p.H0D_ArmeMachine_Emplacement
-    ].filter(Boolean).join(" "));
-
-    for (const rule of RARE_RULES) {
-      const originOK = !rule.origins.length || rule.origins.some(o => actorName.includes(norm(o)));
-      if (!originOK) continue;
-      const keywordOK = rule.keywords.some(k => hay.includes(norm(k)));
-      if (!keywordOK) continue;
-
-      const resource = resourceByName.get(norm(rule.resource));
-      if (!resource || seen.has(resource.id)) continue;
-      seen.add(resource.id);
-      found.push({resource, label:`${resource.name} (${stateInfo.label})`});
+    if(item.system?.template !== "H0DCompMach00001" && !(p.H0D_Composant_PV_Max !== undefined && p.H0D_Composant_Etat !== undefined)) continue;
+    if(machinePartIsChassis(item) || !bool(p.H0D_Composant_Detachable)) continue;
+    if(p.H0D_Composant_Recuperable !== undefined && !bool(p.H0D_Composant_Recuperable)) continue;
+    const max = Math.max(0,Number(p.H0D_Composant_PV_Max)||0);
+    const hp = Math.max(0, Math.min(max,Number(p.H0D_Composant_PV_Actuels)||0));
+    const state = String(p.H0D_Composant_Etat || "Intact");
+    const entryId = foundry.utils.randomID();
+    if(state === "Detruit") continue;
+    if(hp === 0) {
+      entries.push({entryId,kind:"text",name:item.name,img:item.img,quantity:1,
+        category:"À arbitrer par le MJ",note:"Pièce neutralisée à 0 PV — rendement non défini",label:item.name});
+    } else if(hp < max || state === "Endommage") {
+      const resource = damagedMachineResource(item);
+      if(resource) entries.push({entryId,kind:"resource",resource,quantity:1,
+        note:`Recyclage de ${item.name} (${hp}/${max} PV)`,label:item.name});
+    } else {
+      entries.push({entryId,kind:"machine-piece",sourceItemId:item.id,name:item.name,img:item.img,
+        quantity:1,category:"Composants préservés",note:`Pièce physique ${hp}/${max} PV`,label:item.name,
+        origin:actor.name,partProps:foundry.utils.deepClone(p)});
     }
   }
-  return found;
-}
-
-function machinePartState(p) {
-  let state = "";
-  let current = null;
-  let max = null;
-
-  if (Object.prototype.hasOwnProperty.call(p, "H0D_Composant_Etat")) {
-    state = norm(p.H0D_Composant_Etat);
-    current = numOrNull(p.H0D_Composant_PV_Actuels);
-    max = numOrNull(p.H0D_Composant_PV_Max);
-  } else if (Object.prototype.hasOwnProperty.call(p, "H0D_ArmeMachine_Etat")) {
-    state = norm(p.H0D_ArmeMachine_Etat);
-    current = numOrNull(p.H0D_ArmeMachine_PV_Actuels);
-    max = numOrNull(p.H0D_ArmeMachine_PV_Max);
-  } else return {recoverable:false, label:"état inconnu"};
-
-  if (current !== null && current <= 0) return {recoverable:false, label:"détruite"};
-  if (state.includes("detruit")) return {recoverable:false, label:"détruite"};
-  if (state.includes("endommage")) return {recoverable:false, label:"endommagée"};
-  if (current !== null && max !== null && current < max) return {recoverable:false, label:"endommagée"};
-  if (state.includes("detache")) return {recoverable:true, label:"détachée"};
-  return {recoverable:true, label:"intacte"};
+  return entries;
 }
 
 async function manualLootDialog() {
@@ -780,7 +779,7 @@ function renderLootCard(loot) {
   const warning = Number(loot.source?.menace) > 10
     ? `<div class="h0d-loot-warning">Menace ${esc(loot.source.menace)} : barème plafonné à 10.</div>` : "";
   const rare = loot.source?.rareNotes?.length
-    ? `<div class="h0d-loot-rare"><strong>Pièces préservées :</strong> ${loot.source.rareNotes.map(esc).join(" · ")}</div>` : "";
+    ? `<div class="h0d-loot-rare"><strong>Composants examinés :</strong> ${loot.source.rareNotes.map(esc).join(" · ")}</div>` : "";
 
   const groups = new Map();
   for (const item of loot.items || []) {
@@ -792,7 +791,7 @@ function renderLootCard(loot) {
   const sections = groups.size ? [...groups.entries()].map(([category, items]) => {
     const rows = items.map(item => {
       const q = Math.max(0, Number(item.quantity || 0));
-      const transferable = item.kind === "resource" || item.kind === "embedded";
+      const transferable = isTransferable(item);
       const disabled = q <= 0 || !transferable || !claimable;
       const actions = !disabled ? `<span class="h0d-loot-actions">
         <button type="button" data-h0d-loot-action="take-one" data-entry-id="${esc(item.entryId)}" title="Prendre 1"><i class="fa-solid fa-hand"></i> 1</button>
@@ -807,7 +806,7 @@ function renderLootCard(loot) {
     return `<div class="h0d-loot-group"><div class="h0d-loot-group-title">${esc(category)}</div>${rows}</div>`;
   }).join("") : `<div class="h0d-loot-none">Aucun butin récupérable.</div>`;
 
-  const allButton = claimable && remaining > 0 && loot.items.some(i=>(i.kind === "resource" || i.kind === "embedded") && Number(i.quantity)>0)
+  const allButton = claimable && remaining > 0 && loot.items.some(i=>isTransferable(i) && Number(i.quantity)>0)
     ? `<button type="button" class="h0d-loot-take-all" data-h0d-loot-action="take-all"><i class="fa-solid fa-sack-dollar"></i> Tout récupérer</button>` : "";
 
   return `<div class="h0d-loot-card" data-loot-id="${esc(loot.lootId)}">
@@ -946,7 +945,7 @@ function claimRecord(user, actor, entry, quantity) {
 }
 
 function isTransferable(entry) {
-  return entry?.kind === "resource" || entry?.kind === "embedded";
+  return entry?.kind === "resource" || entry?.kind === "embedded" || entry?.kind === "machine-piece";
 }
 
 async function persistLoot(message, loot, tokenDoc=null) {
@@ -981,7 +980,32 @@ async function persistLoot(message, loot, tokenDoc=null) {
 async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
   if (entry.kind === "resource") return addResourceToActor(actor, entry.resourceId, quantity);
   if (entry.kind === "embedded") return addEmbeddedLootToActor(actor, entry, quantity, tokenDoc);
+  if (entry.kind === "machine-piece") return addMachinePartToActor(actor, entry, quantity);
   throw new Error(`Type de butin non transférable : ${entry.kind}`);
+}
+
+async function addMachinePartToActor(actor,entry,quantity) {
+  // Les pièces intactes deviennent des objets PJ, pas des composants de machine actifs.
+  const template = game.items.get(OBJECT_TEMPLATE_ID);
+  if(!template) throw new Error("Template H0D Objet absent : installer Template Manager avant le prélèvement.");
+  const source = cleanEmbeddedItemSource(template.toObject());
+  const original = entry.partProps || {};
+  source.name = entry.name;
+  source.img = entry.img || source.img;
+  source.type = "equippableItem";
+  source.system ??= {};
+  source.system.template = OBJECT_TEMPLATE_ID;
+  source.system.props = {
+    H0D_Objet_Type:"PieceMachine", H0D_Objet_Sous_Type:String(original.H0D_Composant_Type||"Composant"),
+    H0D_Objet_Quantite:1, H0D_Stockage:"PJ", H0D_Objet_Actif:false,
+    H0D_Objet_Identifie:true, H0D_Objet_Etat:"Intact",
+    H0D_Objet_Origine:entry.origin||"", H0D_Objet_Description:`Pièce détachable intacte de ${entry.origin||"machine"} : ${entry.name}`,
+    H0D_Objet_Valeur:Number(original.H0D_Composant_Valeur)||0
+  };
+  source.flags ??= {};
+  source.flags[MODULE_ID] = {looted:true,machinePart:true,sourceItemId:entry.sourceItemId};
+  const sources = Array.from({length:quantity},()=>foundry.utils.deepClone(source));
+  return actor.createEmbeddedDocuments("Item",sources);
 }
 
 async function addResourceToActor(actor, resourceId, quantity) {
