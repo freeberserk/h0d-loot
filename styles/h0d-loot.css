@@ -1,0 +1,52 @@
+/* H0D Loot — carte de chat */
+.h0d-loot-card {
+  border: 1px solid rgba(46, 180, 185, .75);
+  border-left: 3px solid rgba(221, 122, 42, .95);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(12,42,48,.96), rgba(16,26,30,.97));
+  color: #eee9dc;
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgba(0,0,0,.28);
+}
+.h0d-loot-card header {
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
+  padding:8px 10px; background:rgba(0,0,0,.18); border-bottom:1px solid rgba(46,180,185,.35);
+}
+.h0d-loot-card header strong { display:block; color:#fff; font-size:1.05em; }
+.h0d-loot-card header small { display:block; color:#c9c3b6; margin-top:2px; }
+.h0d-loot-card header > i { color:#e18438; font-size:1.4em; }
+.h0d-loot-card section { padding:5px 8px; }
+.h0d-loot-row { display:grid; grid-template-columns:30px minmax(0,1fr) auto auto; gap:7px; align-items:center; padding:4px 2px; border-bottom:1px solid rgba(255,255,255,.07); }
+.h0d-loot-row:last-child { border-bottom:0; }
+.h0d-loot-row.is-empty { opacity:.48; }
+.h0d-loot-row img { width:28px; height:28px; object-fit:cover; border:0; border-radius:4px; }
+.h0d-loot-item { min-width:0; }
+.h0d-loot-item strong { display:block; color:#fff; }
+.h0d-loot-item small { display:block; color:#a9b8b8; font-size:.78em; white-space:normal; }
+.h0d-loot-qty { min-width:28px; text-align:right; font-weight:700; color:#f1c58c; }
+.h0d-loot-actions { display:flex; gap:3px; }
+.h0d-loot-actions button, .h0d-loot-take-all { min-width:0; height:25px; padding:2px 6px; color:#eefafa; background:rgba(31,123,130,.35); border:1px solid rgba(70,194,199,.55); border-radius:4px; }
+.h0d-loot-actions button:hover, .h0d-loot-take-all:hover { background:rgba(31,123,130,.65); }
+.h0d-loot-card footer { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 9px 8px; border-top:1px solid rgba(46,180,185,.25); }
+.h0d-loot-rare, .h0d-loot-warning { margin:6px 8px 0; padding:5px 7px; border-radius:4px; font-size:.86em; }
+.h0d-loot-rare { background:rgba(218,132,45,.12); border:1px solid rgba(218,132,45,.35); color:#f1c58c; }
+.h0d-loot-warning { background:rgba(180,80,40,.15); border:1px solid rgba(210,100,55,.45); }
+.h0d-loot-none { padding:8px; text-align:center; font-style:italic; color:#aaa; }
+.h0d-loot-empty { color:#aaa; font-size:.8em; }
+.h0d-loot-dialog .form-group { margin-bottom:8px; }
+
+
+/* v0.2.0 — catégories de butin / carcasses persistantes */
+.h0d-loot-group { margin: 4px 0 8px; }
+.h0d-loot-group:last-child { margin-bottom: 2px; }
+.h0d-loot-group-title {
+  margin: 2px 0 3px;
+  padding: 3px 6px;
+  color: #f0c98f;
+  background: rgba(225,132,56,.10);
+  border-left: 2px solid rgba(225,132,56,.72);
+  font-size: .75em;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}

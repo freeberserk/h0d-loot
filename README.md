@@ -1,76 +1,68 @@
-# H0D Loot — v0.1.0
+# H0D Loot — v0.2.0
 
-Module Foundry VTT v14 conçu pour la campagne Zero Dawn sous **Custom System Builder**.
+Module Foundry VTT v14 pour la campagne Zero Dawn sous **Custom System Builder**.
 
-## Ce que fait cette version
+## Nouveau en 0.2.0
 
-- ajoute un bouton **H0D Loot** dans les outils Token du MJ ;
-- lit automatiquement le type d'Actor : **Machine** ou **Créature** ;
-- lit automatiquement le niveau de Menace :
-  - Machine : `H0D_Machine_Niveau_Menace`
-  - Créature : `H0D_Creature_Menace`
-- conserve le barème de la macro d'origine : Menace 1 → `1d3`, ... Menace 10 → `3d6` ;
-- crée deux RollTables éditables au premier lancement :
-  - `H0D Loot — Ressources machine`
-  - `H0D Loot — Ressources créature`
-- utilise les vrais Items H0D fournis dans `Item Généré.zip` (45 ressources uniques) ;
-- détecte plusieurs pièces rares de machines quand elles existent réellement sur l'Actor et sont intactes/détachées ;
-- publie une carte de butin persistante dans le chat ;
-- permet aux joueurs de prendre 1 ressource, tout un type de ressource, ou tout le butin ;
-- empile automatiquement `H0D_Ressource_Quantite` dans le PJ destinataire ;
-- empêche le reroll accidentel d'un même token.
+### Carcasses persistantes
 
-## Utilisation
+Le butin est maintenant enregistré directement sur le **TokenDocument** de la cible. Le token présent sur la carte devient donc la carcasse : aucun Actor « Carcasse » supplémentaire n'est nécessaire.
 
-1. Sélectionner un ou plusieurs tokens Machine/Créature.
-2. Dans les outils **Token**, cliquer sur l'icône **boîte ouverte** `H0D Loot`.
-3. Le butin est publié dans le chat.
-4. Les joueurs utilisent les boutons **Prendre**.
+- le MJ sélectionne une cible et clique sur **H0D Loot** pour générer le butin ;
+- si le butin existe déjà, le même bouton le réaffiche sans nouveau tirage ;
+- les joueurs ciblent une carcasse avec **T**, puis cliquent sur **H0D Loot** pour recevoir une vue privée de son contenu ;
+- les prélèvements sont validés par le MJ et mettent à jour l'état persistant de la carcasse.
 
-**Maj + clic** sur le bouton H0D Loot force la régénération du butin des tokens sélectionnés.
+### Régénération explicite
 
-Sans token sélectionné, le bouton ouvre le mode manuel (type, nombre, Menace), équivalent à la macro d'origine.
+Le raccourci `Maj + clic` a été supprimé. Un second bouton MJ **↻ H0D Loot** régénère volontairement le butin des tokens sélectionnés, après confirmation.
 
-## Macro/API facultative
+### Humanoïdes : possessions réelles
+
+Les fiches `H0D_Creature` dont `H0D_Creature_Type` vaut `PNJ` ou `Faction` ne reçoivent plus de loot animal aléatoire. Le module expose les véritables Items présents sur leur fiche :
+
+- armes (`O6qwtv7ozECILPHV`) ;
+- armures (`dEeBbuthkI0CVMa3`) ;
+- objets et munitions (`H0DObjTpl0000001`) ;
+- ressources (`H0DResTpl0000001`).
+
+Les attaques naturelles évidentes comme Poings, Morsure, Griffes ou Crocs sont ignorées par défaut. Le réglage peut être désactivé.
+
+Les objets transférés sont clonés depuis l'Item réellement présent sur le PNJ au moment de la prise. Ils sont placés dans le stockage `PJ` et les états « actif/équipé » sont neutralisés pour éviter une activation automatique.
+
+## Machines et créatures
+
+Le système précédent reste en place :
+
+- barème Menace 1 → `1d3` jusqu'à Menace 10 → `3d6` ;
+- RollTables éditables pour machines et faune ;
+- pièces rares de machine intactes/détachées ;
+- Compendium partagé comme source officielle des ressources H0D ;
+- empilement automatique de `H0D_Ressource_Quantite` ;
+- boutons **Prendre 1**, **Tout ce type** et **Tout récupérer**.
+
+## Compendium de ressources
+
+Par défaut :
+
+`forge-vtt-shared-compendiums-h0d_compendium.item-1-item`
+
+Le diagnostic reste accessible avec :
 
 ```js
-game.modules.get("h0d-loot").api.generate();
+const d = game.modules.get("h0d-loot").api.diagnose();
+console.log(d);
 ```
 
-Génération manuelle :
+## Installation / mise à jour Forge
 
-```js
-game.modules.get("h0d-loot").api.manual();
-```
+Release GitHub : `v0.2.0`
 
-Réinitialiser le verrou de loot des tokens sélectionnés :
-
-```js
-game.modules.get("h0d-loot").api.reset();
-```
-
-## Tables de loot
-
-Les tables créées par le module sont des RollTables normales : le MJ peut modifier librement les poids et les résultats. Pour qu'un résultat soit transférable automatiquement, son texte doit correspondre au nom d'une ressource de la bibliothèque H0D.
-
-Les noyaux de machine ne sont **pas** ajoutés automatiquement en v0.1.0 : leur attribution selon Menace/taille n'est pas encore figée. Ils sont présents dans la bibliothèque et pourront être intégrés dans une prochaine version sans recréer les Items.
-
-## Pièces rares
-
-En v0.1.0, une pièce rare est ajoutée seulement si le module trouve une pièce/arme correspondante sur la Machine et que son état est récupérable (intacte ou détachée, PV > 0, pas endommagée). Cela évite de tirer au hasard un Canon de Ravager sur une carcasse qui ne l'avait pas.
-
-## Installation Forge / GitHub
-
-Manifest prévu :
-
-`https://github.com/freeberserk/h0d-loot/releases/latest/download/module.json`
-
-Pour la release `v0.1.0`, joindre :
+Assets de la release :
 
 - `module.json`
 - `h0d-loot.zip`
 
-## Compatibilité
+Manifest permanent :
 
-- Foundry VTT v14
-- Custom System Builder 6.x (données H0D actuelles)
+`https://github.com/freeberserk/h0d-loot/releases/latest/download/module.json`
