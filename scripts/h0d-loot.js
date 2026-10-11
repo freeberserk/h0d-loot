@@ -129,7 +129,7 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus)
   };
 
-  console.log("H0D Loot | v0.2.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.3.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -613,7 +613,8 @@ function damagedMachineResource(item) {
     [/fibre|cable/, "Fibres synthétiques"]
   ];
   const named = String(p.H0D_Composant_Loot ?? "").trim();
-  const fromField = resourceByName.get(norm(named));
+  const simplifiedNames = DEFAULT_TABLES.machine.map(([name]) => norm(name));
+  const fromField = simplifiedNames.includes(norm(named)) ? resourceByName.get(norm(named)) : null;
   if(fromField) return fromField;
   for(const [pattern,name] of choices) if(pattern.test(text)) {
     const found = resourceByName.get(norm(name)); if(found) return found;
@@ -778,7 +779,7 @@ function renderLootCard(loot) {
   const warning = Number(loot.source?.menace) > 10
     ? `<div class="h0d-loot-warning">Menace ${esc(loot.source.menace)} : barème plafonné à 10.</div>` : "";
   const rare = loot.source?.rareNotes?.length
-    ? `<div class="h0d-loot-rare"><strong>Pièces préservées :</strong> ${loot.source.rareNotes.map(esc).join(" · ")}</div>` : "";
+    ? `<div class="h0d-loot-rare"><strong>Composants examinés :</strong> ${loot.source.rareNotes.map(esc).join(" · ")}</div>` : "";
 
   const groups = new Map();
   for (const item of loot.items || []) {
