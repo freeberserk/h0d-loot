@@ -1,3 +1,11 @@
+## 0.3.0 — Pièces de machine récupérables
+- Lecture des composants physiques embarqués, sans convertir les attaques abstraites en butin.
+- Seules les pièces détachables et récupérables sont éligibles ; châssis toujours exclus.
+- Pièces intactes : objets H0D de type PieceMachine dans l'inventaire du PJ.
+- Pièces endommagées : 1 ressource générique H0D par composant, selon son type (barème provisoire à régler).
+- Pièces à 0 PV et non détruites : entrée informative non transférable, dans l'attente du rendement MJ.
+- Répartition PNJ/faune et carcasses persistantes inchangée.
+
 # Changelog
 
 ## 0.2.0
