@@ -50,3 +50,28 @@
   letter-spacing: .07em;
   text-transform: uppercase;
 }
+
+
+/* v0.5.0 — rapport privé MJ des composants détruits */
+.h0d-loot-gm-audit {
+  border-color: rgba(190, 92, 70, .72);
+  border-left-color: rgba(190, 92, 70, .95);
+}
+.h0d-loot-gm-audit header > i { color:#cf765d; }
+.h0d-loot-gm-audit .h0d-loot-group-title {
+  color:#efb39f;
+  background:rgba(190,92,70,.10);
+  border-left-color:rgba(190,92,70,.76);
+}
+.h0d-loot-destroyed-row {
+  grid-template-columns:30px minmax(0,1fr) auto;
+  opacity:.82;
+}
+.h0d-loot-destroyed-row .h0d-loot-item strong {
+  text-decoration:line-through;
+  text-decoration-color:rgba(210,100,80,.75);
+}
+.h0d-loot-destroyed-mark {
+  color:#cf765d;
+  padding:0 4px;
+}
