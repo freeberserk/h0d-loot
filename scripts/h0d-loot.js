@@ -95,7 +95,7 @@ Hooks.once("init", () => {
   });
   game.settings.register(MODULE_ID, "playersCanClaim", {
     name: "Les joueurs peuvent récupérer le butin",
-    hint: "Les joueurs peuvent cibler une carcasse puis utiliser H0D Loot. Les transferts sont validés par le MJ.",
+    hint: "Les joueurs peuvent cibler une carcasse puis récupérer directement vers leur PJ contrôlé ou possédé. Le MJ actif sécurise automatiquement le transfert en arrière-plan.",
     scope: "world", config: true, type: Boolean, default: true
   });
   game.settings.register(MODULE_ID, "announceGeneration", {
@@ -129,7 +129,7 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus)
   };
 
-  console.log("H0D Loot | v0.3.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.3.1 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -830,48 +830,144 @@ function sourceMeta(source={}) {
 
 async function requestClaim(messageId, entryId, quantity) {
   if (!game.settings.get(MODULE_ID, "playersCanClaim")) return;
-  const actor = await chooseRecipientActor();
-  if (!actor) return;
+  const recipient = await chooseRecipientActor();
+  if (!recipient?.actor) return;
+  const actor = recipient.actor;
   const message = game.messages.get(messageId);
   const snapshot = message?.getFlag(MODULE_ID, LOOT_FLAG);
   if (!snapshot) return ui.notifications?.warn("H0D Loot : carte de butin invalide.");
 
   const payload = {
-    type:"claim", userId:game.user.id, actorId:actor.id, messageId,
-    lootId:snapshot.lootId, tokenUuid:snapshot.source?.tokenUuid || null,
-    entryId, quantity
+    type:"claim",
+    userId:game.user.id,
+    actorId:actor.id,
+    actorUuid:actor.uuid || null,
+    recipientTokenUuid:recipient.tokenUuid || null,
+    messageId,
+    lootId:snapshot.lootId,
+    tokenUuid:snapshot.source?.tokenUuid || null,
+    entryId,
+    quantity
   };
 
   if (isPrimaryGM()) await processClaim(payload);
   else {
     const gm = primaryGM();
-    if (!gm) return ui.notifications?.error("H0D Loot : aucun MJ actif pour valider le transfert.");
+    if (!gm) return ui.notifications?.error("H0D Loot : aucun MJ actif pour sécuriser le transfert.");
     game.socket.emit(SOCKET, payload);
-    ui.notifications?.info(`H0D Loot : demande envoyée pour ${actor.name}.`);
+    ui.notifications?.info(`H0D Loot : récupération vers ${actor.name} en cours…`);
   }
+}
+
+function isPlayerCharacterActor(actor) {
+  const p = actor?.system?.props ?? {};
+  return Object.prototype.hasOwnProperty.call(p, "H0D_PV_Actuels")
+    && !Object.prototype.hasOwnProperty.call(p, "H0D_Machine_PV_Actuels")
+    && !Object.prototype.hasOwnProperty.call(p, "H0D_Creature_PV_Actuels");
+}
+
+function actorOwnedByUser(actor, user=game.user) {
+  if (!actor || !user) return false;
+  try {
+    return actor.testUserPermission(user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER);
+  } catch (_) {
+    return !!actor.isOwner;
+  }
+}
+
+function uniqueRecipientCandidates(candidates=[]) {
+  const seen = new Set();
+  const out = [];
+  for (const c of candidates) {
+    if (!c?.actor || !isPlayerCharacterActor(c.actor)) continue;
+    const key = c.tokenUuid || c.actor.uuid || c.actor.id;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
+}
+
+async function chooseRecipientFromList(candidates, title="H0D Loot — destinataire") {
+  const clean = uniqueRecipientCandidates(candidates);
+  if (clean.length === 1) return clean[0];
+  if (!clean.length) return null;
+
+  const opts = clean.map((c, index) => {
+    const source = c.tokenUuid ? "token contrôlé" : "personnage possédé";
+    return `<option value="${index}">${esc(c.actor.name)} — ${source}</option>`;
+  }).join("");
+
+  const fd = await foundry.applications.api.DialogV2.input({
+    window:{title},
+    content:`<div class="form-group"><label>Ajouter le butin à</label><select name="recipientIndex">${opts}</select></div>`,
+    ok:{label:"Choisir"}, rejectClose:false, modal:true
+  });
+  if (!fd) return null;
+  return clean[Number(fd.recipientIndex)] ?? null;
 }
 
 async function chooseRecipientActor() {
   const user = game.user;
-  if (user.character && user.character.testUserPermission(user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)) return user.character;
 
-  const candidates = game.actors.filter(a => {
-    if (!a.testUserPermission(user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)) return false;
-    return Object.prototype.hasOwnProperty.call(a.system?.props ?? {}, "H0D_PV_Actuels");
-  });
-  if (candidates.length === 1) return candidates[0];
-  if (!candidates.length) {
-    ui.notifications?.warn("H0D Loot : aucun PJ possédé par ce joueur.");
-    return null;
+  // 1. Priorité au PJ actuellement contrôlé : aucun assignement Foundry requis.
+  const controlled = uniqueRecipientCandidates(
+    (canvas?.tokens?.controlled ?? [])
+      .filter(t => t?.actor && actorOwnedByUser(t.actor, user))
+      .map(t => ({actor:t.actor, tokenUuid:t.document?.uuid || null}))
+  );
+  if (controlled.length === 1) return controlled[0];
+  if (controlled.length > 1) {
+    return chooseRecipientFromList(controlled, "H0D Loot — quel PJ contrôlé reçoit le butin ?");
   }
 
-  const opts = candidates.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("");
-  const fd = await foundry.applications.api.DialogV2.input({
-    window:{title:"H0D Loot — destinataire"},
-    content:`<div class="form-group"><label>Ajouter le butin à</label><select name="actorId">${opts}</select></div>`,
-    ok:{label:"Choisir"}, rejectClose:false, modal:true
-  });
-  return fd ? game.actors.get(String(fd.actorId)) : null;
+  // 2. Personnage explicitement associé à l'utilisateur, si présent.
+  if (user.character && isPlayerCharacterActor(user.character) && actorOwnedByUser(user.character, user)) {
+    return {actor:user.character, tokenUuid:null};
+  }
+
+  // 3. S'il n'y a qu'un seul PJ possédé présent sur la scène, on le choisit automatiquement.
+  const sceneOwned = uniqueRecipientCandidates(
+    (canvas?.tokens?.placeables ?? [])
+      .filter(t => t?.actor && actorOwnedByUser(t.actor, user))
+      .map(t => ({actor:t.actor, tokenUuid:t.document?.uuid || null}))
+  );
+  if (sceneOwned.length === 1) return sceneOwned[0];
+
+  // 4. Dernier recours : tous les PJ possédés dans le monde.
+  const worldOwned = uniqueRecipientCandidates(
+    game.actors
+      .filter(a => actorOwnedByUser(a, user))
+      .map(a => ({actor:a, tokenUuid:null}))
+  );
+  if (worldOwned.length === 1) return worldOwned[0];
+  if (worldOwned.length > 1) {
+    return chooseRecipientFromList(worldOwned, "H0D Loot — quel PJ reçoit le butin ?");
+  }
+
+  ui.notifications?.warn("H0D Loot : aucun PJ contrôlé ou possédé par ce joueur.");
+  return null;
+}
+
+async function resolveRecipientActor(data, user) {
+  if (data.recipientTokenUuid) {
+    const tokenDoc = await resolveTokenDocument(data.recipientTokenUuid);
+    const tokenActor = tokenDoc?.actor ?? tokenDoc?.object?.actor ?? null;
+    if (tokenActor && isPlayerCharacterActor(tokenActor)) return tokenActor;
+  }
+
+  if (data.actorUuid) {
+    try {
+      const resolver = foundry.utils.fromUuid ?? globalThis.fromUuid;
+      const byUuid = await resolver(data.actorUuid);
+      if (byUuid?.documentName === "Actor" && isPlayerCharacterActor(byUuid)) return byUuid;
+    } catch (err) {
+      console.warn("H0D Loot | acteur destinataire UUID invalide", data.actorUuid, err);
+    }
+  }
+
+  const byId = game.actors.get(data.actorId);
+  return byId && isPlayerCharacterActor(byId) ? byId : null;
 }
 
 async function onSocketMessage(data) {
@@ -892,10 +988,12 @@ async function processClaim(data) {
 
   try {
     const user = game.users.get(data.userId);
-    const actor = game.actors.get(data.actorId);
     const message = game.messages.get(data.messageId);
-    if (!user || !actor || !message) return respond(false, "H0D Loot : demande invalide ou expirée.");
-    if (!user.isGM && !actor.testUserPermission(user, CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)) {
+    if (!user || !message) return respond(false, "H0D Loot : demande invalide ou expirée.");
+
+    const actor = await resolveRecipientActor(data, user);
+    if (!actor) return respond(false, "H0D Loot : personnage destinataire introuvable.");
+    if (!user.isGM && !actorOwnedByUser(actor, user)) {
       return respond(false, "H0D Loot : ce personnage ne t’appartient pas.");
     }
 
