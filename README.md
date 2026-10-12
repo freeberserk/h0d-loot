@@ -1,4 +1,4 @@
-# H0D Loot — v0.3.1
+# H0D Loot — v0.4.0
 
 Module Foundry VTT v14 pour la campagne Zero Dawn sous **Custom System Builder**.
 
@@ -68,9 +68,11 @@ Manifest permanent :
 `https://github.com/freeberserk/h0d-loot/releases/latest/download/module.json`
 
 
-## Récupération autonome — v0.3.1
 
-Quand l'option **Les joueurs peuvent récupérer le butin** est active, le joueur cible une carcasse avec **T**, ouvre **H0D Loot**, puis utilise **Prendre 1**, **Tout ce type** ou **Tout récupérer**.
+
+## Récupération autonome — v0.4.0
+
+Le joueur cible une carcasse avec **T**, ouvre **H0D Loot**, puis utilise **Prendre 1**, **Tout ce type** ou **Tout récupérer**.
 
 Le destinataire est résolu automatiquement dans cet ordre :
 
@@ -80,6 +82,24 @@ Le destinataire est résolu automatiquement dans cet ordre :
 4. unique PJ possédé dans le monde ;
 5. choix par le joueur s'il possède plusieurs PJ possibles.
 
-Le MJ n'a plus à assigner manuellement le butin. Son client reste l'autorité technique qui valide et écrit la transaction sur la carcasse persistante. Un MJ actif reste donc nécessaire pendant la récupération multijoueur.
+Le MJ n'a plus à assigner manuellement le butin. Son client reste l'autorité technique qui sécurise et écrit la transaction sur la carcasse persistante.
 
-Les règles de composants détériorés ne changent pas dans cette version.
+## Composants de machine détériorés
+
+La récupération des pièces détachables suit désormais ces règles :
+
+- **Détachée, PV > 0** : la pièce elle-même est récupérable comme objet de craft, avec son état et ses PV d'origine conservés en métadonnées.
+- **Détachée, 0 PV** : la pièce est récupérable comme **composant détérioré** et fournit en plus **1 ressource secondaire**.
+- **Détruite** : pas de composant récupérable par cette règle.
+
+Récupération secondaire automatique :
+
+- réservoirs / bonbonnes / sacs de fluide → fluide élémentaire correspondant ;
+- batteries / réacteurs / générateurs → cellule d'énergie faible ;
+- optiques / radars / capteurs → lentilles optiques ;
+- électronique / modules / relais → circuit ancien abîmé ;
+- structure / griffes / plaques / membres rigides → plaques métalliques ;
+- éléments souples / stabilisateurs / câblages → fibres synthétiques ;
+- cœurs / noyaux → noyau de machine selon la catégorie de la machine.
+
+Si un réservoir ne permet pas d'identifier son élément, H0D Loot le laisse volontairement à arbitrer au lieu d'inventer un fluide.
