@@ -1,4 +1,4 @@
-# H0D Loot — v0.2.0
+# H0D Loot — v0.3.1
 
 Module Foundry VTT v14 pour la campagne Zero Dawn sous **Custom System Builder**.
 
@@ -66,3 +66,20 @@ Assets de la release :
 Manifest permanent :
 
 `https://github.com/freeberserk/h0d-loot/releases/latest/download/module.json`
+
+
+## Récupération autonome — v0.3.1
+
+Quand l'option **Les joueurs peuvent récupérer le butin** est active, le joueur cible une carcasse avec **T**, ouvre **H0D Loot**, puis utilise **Prendre 1**, **Tout ce type** ou **Tout récupérer**.
+
+Le destinataire est résolu automatiquement dans cet ordre :
+
+1. PJ actuellement contrôlé par le joueur ;
+2. personnage Foundry assigné à l'utilisateur ;
+3. unique PJ possédé présent sur la scène ;
+4. unique PJ possédé dans le monde ;
+5. choix par le joueur s'il possède plusieurs PJ possibles.
+
+Le MJ n'a plus à assigner manuellement le butin. Son client reste l'autorité technique qui valide et écrit la transaction sur la carcasse persistante. Un MJ actif reste donc nécessaire pendant la récupération multijoueur.
+
+Les règles de composants détériorés ne changent pas dans cette version.
