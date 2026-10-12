@@ -1,3 +1,11 @@
+## 0.5.0 — Rapport MJ des composants détruits
+- Les pièces détachables dont l'état final est **Détruite** restent totalement exclues du butin : aucun composant et aucune récupération secondaire.
+- Lors de la génération d'un butin Machine, H0D Loot crée désormais un **message privé aux MJ** listant uniquement ces pièces détruites.
+- Le rapport affiche le nom de la pièce, ses PV finaux et la mention **aucun rendement**.
+- Ce rapport ne contient aucun bouton de récupération et n'est jamais visible par les joueurs.
+- Le message privé est rattaché au cycle de butin de la carcasse : une régénération avec suppression des cartes nettoie aussi l'ancien rapport.
+- Les cartes de butin joueurs restent inchangées et ne montrent pas les pièces détruites.
+
 ## 0.4.0 — Récupération autonome & composants détériorés
 - Les joueurs peuvent récupérer eux-mêmes le butin vers leur PJ contrôlé, sans assignement manuel du MJ.
 - Fallbacks destinataire : personnage assigné, unique PJ possédé sur la scène, unique PJ possédé dans le monde, puis choix joueur.

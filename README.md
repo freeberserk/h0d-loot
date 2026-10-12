@@ -1,4 +1,4 @@
-# H0D Loot — v0.4.0
+# H0D Loot — v0.5.0
 
 Module Foundry VTT v14 pour la campagne Zero Dawn sous **Custom System Builder**.
 
@@ -103,3 +103,14 @@ Récupération secondaire automatique :
 - cœurs / noyaux → noyau de machine selon la catégorie de la machine.
 
 Si un réservoir ne permet pas d'identifier son élément, H0D Loot le laisse volontairement à arbitrer au lieu d'inventer un fluide.
+
+
+## Rapport privé MJ — composants détruits
+
+Pour une machine, une pièce détachable dont l'état final est **Détruite** ne produit rien :
+ni objet récupérable, ni récupération secondaire.
+
+À la génération du butin, H0D Loot envoie toutefois aux MJ un message privé de contrôle listant ces pièces avec leurs PV finaux et la mention **aucun rendement**.
+
+Ce rapport est purement informatif : il n'a aucun bouton de prise et n'apparaît jamais côté joueurs.
+Il sert à vérifier visuellement la fin de la chaîne **création → PV → état → loot**.

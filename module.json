@@ -1,8 +1,8 @@
 {
   "id": "h0d-loot",
   "title": "H0D Loot",
-  "description": "Butin persistant H0D : récupération autonome des joueurs, composants de machines préservés/détériorés et ressources de récupération.",
-  "version": "0.4.0",
+  "description": "Butin persistant H0D : récupération autonome, composants préservés/détériorés, récupération secondaire et rapport MJ des pièces détruites.",
+  "version": "0.5.0",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"

@@ -129,7 +129,7 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus)
   };
 
-  console.log("H0D Loot | v0.4.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.5.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -497,6 +497,19 @@ async function generateForToken(token, type) {
     depleted:loot.items.every(i => Number(i.quantity || 0) <= 0)
   });
 
+  // Les pièces détachables réellement détruites ne produisent aucun loot.
+  // Un rapport séparé, privé aux MJ, permet de vérifier la chaîne PV → état → loot
+  // sans polluer la carte visible par les joueurs.
+  if (type === "machine") {
+    const report = await createDestroyedPartsGMMessage(token.document, actor);
+    if (report && game.user?.isGM) {
+      const state = token.document.getFlag(MODULE_ID, TOKEN_FLAG) || {};
+      const ids = new Set(state.messageIds || []);
+      ids.add(report.id);
+      await token.document.setFlag(MODULE_ID, TOKEN_FLAG, {...state, messageIds:[...ids]});
+    }
+  }
+
   if (game.settings.get(MODULE_ID, "announceGeneration")) {
     await surfaceTokenLoot(token.document, loot, {privateToUser:false});
   } else {
@@ -814,6 +827,84 @@ function findRecoverableMachineParts(actor) {
   }
 
   return entries;
+}
+
+function findDestroyedMachineParts(actor) {
+  const out = [];
+  const bool = v => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true";
+
+  for (const item of actor.items ?? []) {
+    const p = item.system?.props ?? {};
+    const isPiece = item.system?.template === "H0DCompMach00001"
+      || (p.H0D_Composant_PV_Max !== undefined && p.H0D_Composant_Etat !== undefined);
+    if (!isPiece) continue;
+    if (!bool(p.H0D_Composant_Detachable)) continue;
+
+    const stateNorm = norm(String(p.H0D_Composant_Etat || ""));
+    if (stateNorm !== "detruit") continue;
+
+    const max = Math.max(0, Number(p.H0D_Composant_PV_Max) || 0);
+    const hp = Math.max(0, Math.min(max, Number(p.H0D_Composant_PV_Actuels) || 0));
+    out.push({
+      id:item.id,
+      name:item.name,
+      img:item.img || "icons/svg/item-bag.svg",
+      hp,
+      max
+    });
+  }
+
+  return out.sort((a,b) => String(a.name).localeCompare(String(b.name), "fr"));
+}
+
+function renderDestroyedPartsReport(tokenName, parts) {
+  const rows = parts.map(part => `
+    <div class="h0d-loot-row h0d-loot-destroyed-row">
+      <img src="${esc(part.img)}" alt="">
+      <div class="h0d-loot-item">
+        <strong>${esc(part.name)}</strong>
+        <small>Détruite · ${part.hp}/${part.max} PV · aucun rendement</small>
+      </div>
+      <span class="h0d-loot-destroyed-mark"><i class="fa-solid fa-ban"></i></span>
+    </div>`
+  ).join("");
+
+  return `<div class="h0d-loot-card h0d-loot-gm-audit">
+    <header>
+      <div>
+        <strong>Rapport MJ — ${esc(tokenName)}</strong>
+        <small>Composants détruits · non récupérables</small>
+      </div>
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </header>
+    <div class="h0d-loot-warning">Ces pièces ne génèrent ni composant, ni récupération secondaire.</div>
+    <section>
+      <div class="h0d-loot-group">
+        <div class="h0d-loot-group-title">Composants détruits</div>
+        ${rows}
+      </div>
+    </section>
+  </div>`;
+}
+
+async function createDestroyedPartsGMMessage(tokenDoc, actor) {
+  const parts = findDestroyedMachineParts(actor);
+  if (!parts.length) return null;
+
+  const whisper = (game.users ?? []).filter(u => u.isGM).map(u => u.id);
+  if (!whisper.length && game.user?.id) whisper.push(game.user.id);
+
+  const data = {
+    content:renderDestroyedPartsReport(tokenDoc?.name || actor?.name || "Machine", parts),
+    whisper,
+    flags:{[MODULE_ID]:{
+      destroyedPartsReport:true,
+      tokenUuid:tokenDoc?.uuid || null,
+      actorUuid:actor?.uuid || null
+    }}
+  };
+  if (tokenDoc) data.speaker = ChatMessage.getSpeaker({token:tokenDoc.object ?? tokenDoc});
+  return ChatMessage.create(data);
 }
 
 async function manualLootDialog() {
