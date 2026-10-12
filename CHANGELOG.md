@@ -1,3 +1,12 @@
+## 0.3.1 — Récupération autonome des joueurs
+- Le PJ contrôlé est désormais prioritaire comme destinataire du butin.
+- Aucun assignement de personnage Foundry n'est requis si le joueur contrôle son token PJ.
+- Fallbacks automatiques : personnage assigné, unique PJ possédé sur la scène, puis unique PJ possédé dans le monde.
+- Si plusieurs PJ sont possibles, le joueur choisit lui-même le destinataire.
+- Support renforcé des Actors synthétiques / tokens non liés via UUID de token.
+- Le MJ actif continue de sécuriser la transaction en arrière-plan, sans assignation manuelle.
+- Aucune modification de la logique actuelle des composants détériorés : elle reste prévue pour une évolution séparée.
+
 ## 0.3.0 — Pièces de machine récupérables
 - Lecture des composants physiques embarqués, sans convertir les attaques abstraites en butin.
 - Seules les pièces détachables et récupérables sont éligibles ; châssis toujours exclus.
