@@ -1,8 +1,8 @@
 {
   "id": "h0d-loot",
   "title": "H0D Loot",
-  "description": "Butin persistant sur les carcasses, récupération des possessions réelles des humanoïdes et ressources pour la campagne Zero Dawn sous Custom System Builder.",
-  "version": "0.3.0",
+  "description": "Butin persistant H0D : récupération autonome des joueurs, possessions réelles des humanoïdes et ressources/composants de machines.",
+  "version": "0.3.1",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
