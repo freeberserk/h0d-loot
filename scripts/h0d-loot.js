@@ -129,7 +129,7 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus)
   };
 
-  console.log("H0D Loot | v0.3.1 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.4.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -447,11 +447,19 @@ async function generateForToken(token, type) {
 
     const rareNotes = [];
     if (type === "machine") {
+      const examined = new Set();
       for (const part of findRecoverableMachineParts(actor)) {
-        if (part.kind === "resource") addLoot(lootMap, part.resource, 1, part.note);
-        else lootMap.set(part.entryId, part);
-        rareNotes.push(part.label);
+        if (part.kind === "resource") {
+          addLoot(lootMap, part.resource, 1, part.note, {
+            category:part.category || "Ressource",
+            keyPrefix:part.category ? `${part.category}:` : ""
+          });
+        } else {
+          lootMap.set(part.entryId, part);
+        }
+        if (part.label) examined.add(part.label);
       }
+      rareNotes.push(...examined);
     }
 
     loot = {
@@ -579,9 +587,9 @@ function addTableResult(map, result, quantity=1) {
   }
 }
 
-function addLoot(map, resource, quantity, note="") {
+function addLoot(map, resource, quantity, note="", {category="Ressource", keyPrefix=""} = {}) {
   if (!resource || quantity <= 0) return;
-  const key = resource.id;
+  const key = `${keyPrefix}${resource.id}`;
   const current = map.get(key);
   if (current) {
     current.quantity += quantity;
@@ -590,63 +598,221 @@ function addLoot(map, resource, quantity, note="") {
     map.set(key, {
       entryId:foundry.utils.randomID(), kind:"resource", resourceId:resource.id,
       name:resource.name, img:resource.source?.img || "icons/svg/item-bag.svg",
-      quantity, category:"Ressource", note
+      quantity, category, note
     });
   }
 }
 
 // La fiche Machine est l'autorité pour les pièces physiques : jamais les attaques abstraites.
-// Une pièce à 0 PV conserve son issue Detache/Detruit, mais sa récupération reste en attente.
+// Canon récupération : une pièce détachée à PV > 0 reste exploitable pour le craft.
+// Une pièce détachée à 0 PV devient un composant détérioré ET fournit 1 ressource secondaire.
 function machinePartIsChassis(item) {
   return /chassis/.test(norm([item.name, item.system?.props?.H0D_Composant_Type].join(" ")));
 }
-function damagedMachineResource(item) {
-  const p = item.system?.props ?? {};
-  const text = norm([item.name,p.H0D_Composant_Type,p.H0D_Composant_Loot].join(" "));
-  const choices = [
-    [/blaze/, "Fluide élémentaire — Blaze"],
-    [/chillwater|cryo|gel/, "Fluide élémentaire — Chillwater"],
-    [/sparker|choc|batterie/, "Cellule d’énergie faible"],
-    [/metalburn|acide/, "Fluide élémentaire — Metalburn"],
-    [/oeil|optique|radar|capteur|lentille/, "Lentilles optiques"],
-    [/circuit|relais|electronique/, "Circuit ancien abîmé"],
-    [/fibre|cable/, "Fibres synthétiques"]
-  ];
-  const named = String(p.H0D_Composant_Loot ?? "").trim();
-  const simplifiedNames = DEFAULT_TABLES.machine.map(([name]) => norm(name));
-  const fromField = simplifiedNames.includes(norm(named)) ? resourceByName.get(norm(named)) : null;
-  if(fromField) return fromField;
-  for(const [pattern,name] of choices) if(pattern.test(text)) {
-    const found = resourceByName.get(norm(name)); if(found) return found;
-  }
-  return resourceByName.get(norm("Plaques métalliques")) ?? null;
+
+function genericMachineResourceByName(name) {
+  const resource = resourceByName.get(norm(name)) ?? null;
+  if (!resource) return null;
+  const type = String(resource.source?.system?.props?.H0D_Ressource_Type || "");
+  return ["Plaque","Fibre","Lentille","Cellule","Circuit","Fluide","Noyau"].includes(type) ? resource : null;
 }
+
+function fluidResourceFromText(text) {
+  const n = norm(text);
+  const mapping = [
+    [/blaze|feu/, "Fluide élémentaire — Blaze"],
+    [/chillwater|cryo|cryogen|gel/, "Fluide élémentaire — Chillwater"],
+    [/metalburn|acide/, "Fluide élémentaire — Metalburn"],
+    [/sparker|etincelle/, "Fluide élémentaire — Sparker"]
+  ];
+  for (const [pattern, name] of mapping) {
+    if (!pattern.test(n)) continue;
+    const found = genericMachineResourceByName(name);
+    if (found) return found;
+  }
+  return null;
+}
+
+function nucleusResourceForMachine(actor) {
+  const p = actor?.system?.props ?? {};
+  const category = norm(p.H0D_Machine_Categorie || "");
+  let name = null;
+  if (/petite/.test(category)) name = "Noyau de petite machine";
+  else if (/moyenne/.test(category)) name = "Noyau de machine moyenne";
+  else if (/lourde|titan|prototype/.test(category)) name = "Noyau de machine lourde";
+  if (!name) return null;
+  return genericMachineResourceByName(name);
+}
+
+function damagedMachineResource(item, actor=null) {
+  const p = item.system?.props ?? {};
+  const type = norm(p.H0D_Composant_Type || "");
+  const named = String(p.H0D_Composant_Loot ?? "").trim();
+  const text = norm([
+    item.name,
+    p.H0D_Composant_Type,
+    p.H0D_Composant_Loot,
+    p.H0D_Composant_Emplacement,
+    p.H0D_Composant_Notes
+  ].join(" "));
+
+  // Si la fiche fournit déjà une ressource générique connue, elle est prioritaire.
+  const fromField = genericMachineResourceByName(named);
+  if (fromField) return fromField;
+
+  // Cœurs / noyaux -> noyau correspondant au gabarit de la machine.
+  if (type === "noyau" || /\bcoeur\b|\bnoyau\b/.test(text)) {
+    return nucleusResourceForMachine(actor);
+  }
+
+  // Réservoirs / bonbonnes / sacs de fluide -> fluide élémentaire correspondant.
+  if (type === "reservoir" || /reservoir|bonbonne|sac de fluide|poche de fluide/.test(text)) {
+    return fluidResourceFromText(text);
+  }
+
+  // Éléments souples / stabilisateurs / câblages -> fibre synthétique.
+  if (/stabilisateur|cablage|cable|fibre|filament|faisceau|tendon|souple/.test(text)) {
+    return genericMachineResourceByName("Fibres synthétiques");
+  }
+
+  // Batteries / réacteurs / générateurs -> cellule d'énergie.
+  if (type === "generateur" || type === "moteur" || /batterie|reacteur|generateur|accumulateur|cellule d energie/.test(text)) {
+    return genericMachineResourceByName("Cellule d’énergie faible");
+  }
+
+  // Optiques / radars / capteurs -> lentille optique.
+  if (type === "capteur" || /oeil|optique|radar|capteur|lentille/.test(text)) {
+    return genericMachineResourceByName("Lentilles optiques");
+  }
+
+  // Électronique / modules -> circuit ancien.
+  if (/circuit|relais|electronique|module|processeur|balise|emetteur|recepteur|interface/.test(text)) {
+    return genericMachineResourceByName("Circuit ancien abîmé");
+  }
+
+  // Une mention explicite d'un fluide reste exploitable même si le type est Autre/Cargo.
+  const fluid = fluidResourceFromText(text);
+  if (fluid && /fluide|blaze|chillwater|cryo|metalburn|sparker/.test(text)) return fluid;
+
+  // Structures rigides / griffes / plaques / membres -> plaque métallique.
+  if (["blindage","structure","mobilite","cargo"].includes(type)
+      || /structure|griffe|plaque|blindage|membre|patte|aile|carapace|coque|armature/.test(text)) {
+    return genericMachineResourceByName("Plaques métalliques");
+  }
+
+  return null;
+}
+
+function machinePieceLootEntry(item, actor, {hp, max, category, condition, deteriorated=false} = {}) {
+  const p = item.system?.props ?? {};
+  return {
+    entryId:foundry.utils.randomID(),
+    kind:"machine-piece",
+    sourceItemId:item.id,
+    name:item.name,
+    img:item.img,
+    quantity:1,
+    category,
+    condition,
+    deteriorated,
+    sourceHp:hp,
+    sourceMaxHp:max,
+    sourceState:String(p.H0D_Composant_Etat || "Intact"),
+    note:deteriorated
+      ? `Pièce détachée détériorée — ${hp}/${max} PV`
+      : `Pièce physique exploitable — ${hp}/${max} PV`,
+    label:item.name,
+    origin:actor.name,
+    partProps:foundry.utils.deepClone(p)
+  };
+}
+
 function findRecoverableMachineParts(actor) {
   const entries = [];
   const bool = v => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true";
+
   for(const item of actor.items ?? []) {
     const p = item.system?.props ?? {};
     if(item.system?.template !== "H0DCompMach00001" && !(p.H0D_Composant_PV_Max !== undefined && p.H0D_Composant_Etat !== undefined)) continue;
     if(machinePartIsChassis(item) || !bool(p.H0D_Composant_Detachable)) continue;
     if(p.H0D_Composant_Recuperable !== undefined && !bool(p.H0D_Composant_Recuperable)) continue;
+
     const max = Math.max(0,Number(p.H0D_Composant_PV_Max)||0);
     const hp = Math.max(0, Math.min(max,Number(p.H0D_Composant_PV_Actuels)||0));
     const state = String(p.H0D_Composant_Etat || "Intact");
-    const entryId = foundry.utils.randomID();
-    if(state === "Detruit") continue;
+    const stateNorm = norm(state);
+
+    // Détruite = aucun composant physique exploitable dans cette règle.
+    if(stateNorm === "detruit") continue;
+
+    // Détachée : l'état physique de la pièce prime.
+    if(stateNorm === "detache") {
+      if(hp > 0) {
+        entries.push(machinePieceLootEntry(item, actor, {
+          hp, max,
+          category:"Composants préservés",
+          condition:hp < max ? "Endommage" : "Intact",
+          deteriorated:false
+        }));
+      } else {
+        entries.push(machinePieceLootEntry(item, actor, {
+          hp, max,
+          category:"Composants détériorés",
+          condition:"Casse",
+          deteriorated:true
+        }));
+
+        const resource = damagedMachineResource(item, actor);
+        if(resource) {
+          entries.push({
+            entryId:foundry.utils.randomID(),
+            kind:"resource",
+            resource,
+            quantity:1,
+            category:"Récupération secondaire",
+            note:`Issue de ${item.name} détérioré (0/${max} PV)`,
+            label:item.name
+          });
+        } else {
+          entries.push({
+            entryId:foundry.utils.randomID(),
+            kind:"text",
+            name:`Récupération secondaire — ${item.name}`,
+            img:item.img,
+            quantity:1,
+            category:"À arbitrer par le MJ",
+            note:"Famille de récupération non déterminée automatiquement",
+            label:item.name
+          });
+        }
+      }
+      continue;
+    }
+
+    // Pièce encore montée mais endommagée : ancien comportement de recyclage conservé.
     if(hp === 0) {
-      entries.push({entryId,kind:"text",name:item.name,img:item.img,quantity:1,
-        category:"À arbitrer par le MJ",note:"Pièce neutralisée à 0 PV — rendement non défini",label:item.name});
-    } else if(hp < max || state === "Endommage") {
-      const resource = damagedMachineResource(item);
-      if(resource) entries.push({entryId,kind:"resource",resource,quantity:1,
-        note:`Recyclage de ${item.name} (${hp}/${max} PV)`,label:item.name});
+      entries.push({
+        entryId:foundry.utils.randomID(),kind:"text",name:item.name,img:item.img,quantity:1,
+        category:"À arbitrer par le MJ",note:"Pièce à 0 PV non détachée — état de récupération ambigu",label:item.name
+      });
+    } else if(hp < max || stateNorm === "endommage") {
+      const resource = damagedMachineResource(item, actor);
+      if(resource) {
+        entries.push({
+          entryId:foundry.utils.randomID(),kind:"resource",resource,quantity:1,
+          note:`Recyclage de ${item.name} (${hp}/${max} PV)`,label:item.name
+        });
+      }
     } else {
-      entries.push({entryId,kind:"machine-piece",sourceItemId:item.id,name:item.name,img:item.img,
-        quantity:1,category:"Composants préservés",note:`Pièce physique ${hp}/${max} PV`,label:item.name,
-        origin:actor.name,partProps:foundry.utils.deepClone(p)});
+      entries.push(machinePieceLootEntry(item, actor, {
+        hp, max,
+        category:"Composants préservés",
+        condition:"Intact",
+        deteriorated:false
+      }));
     }
   }
+
   return entries;
 }
 
@@ -1083,25 +1249,47 @@ async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
 }
 
 async function addMachinePartToActor(actor,entry,quantity) {
-  // Les pièces intactes deviennent des objets PJ, pas des composants de machine actifs.
+  // Une pièce récupérée devient un Objet PJ de type PieceMachine, jamais un composant machine actif.
   const template = game.items.get(OBJECT_TEMPLATE_ID);
   if(!template) throw new Error("Template H0D Objet absent : installer Template Manager avant le prélèvement.");
+
   const source = cleanEmbeddedItemSource(template.toObject());
   const original = entry.partProps || {};
-  source.name = entry.name;
+  const condition = String(entry.condition || "Intact");
+  const hp = Math.max(0, Number(entry.sourceHp ?? original.H0D_Composant_PV_Actuels ?? 0) || 0);
+  const max = Math.max(0, Number(entry.sourceMaxHp ?? original.H0D_Composant_PV_Max ?? 0) || 0);
+  const deteriorated = !!entry.deteriorated || (hp === 0 && max > 0);
+
+  source.name = deteriorated ? `${entry.name} — détérioré` : entry.name;
   source.img = entry.img || source.img;
   source.type = "equippableItem";
   source.system ??= {};
   source.system.template = OBJECT_TEMPLATE_ID;
   source.system.props = {
-    H0D_Objet_Type:"PieceMachine", H0D_Objet_Sous_Type:String(original.H0D_Composant_Type||"Composant"),
-    H0D_Objet_Quantite:1, H0D_Stockage:"PJ", H0D_Objet_Actif:false,
-    H0D_Objet_Identifie:true, H0D_Objet_Etat:"Intact",
-    H0D_Objet_Origine:entry.origin||"", H0D_Objet_Description:`Pièce détachable intacte de ${entry.origin||"machine"} : ${entry.name}`,
+    H0D_Objet_Type:"PieceMachine",
+    H0D_Objet_Sous_Type:String(original.H0D_Composant_Type||"Composant"),
+    H0D_Objet_Quantite:1,
+    H0D_Stockage:"PJ",
+    H0D_Objet_Actif:false,
+    H0D_Objet_Identifie:true,
+    H0D_Objet_Etat:condition,
+    H0D_Objet_Origine:entry.origin||"",
+    H0D_Objet_Description:deteriorated
+      ? `Pièce détachée détériorée de ${entry.origin||"machine"} : ${entry.name} (${hp}/${max} PV). Peut servir de matériau de craft ou de récupération.`
+      : `Pièce détachée exploitable de ${entry.origin||"machine"} : ${entry.name} (${hp}/${max} PV).`,
     H0D_Objet_Valeur:Number(original.H0D_Composant_Valeur)||0
   };
   source.flags ??= {};
-  source.flags[MODULE_ID] = {looted:true,machinePart:true,sourceItemId:entry.sourceItemId};
+  source.flags[MODULE_ID] = {
+    looted:true,
+    machinePart:true,
+    sourceItemId:entry.sourceItemId,
+    sourceState:entry.sourceState || original.H0D_Composant_Etat || null,
+    sourceHp:hp,
+    sourceMaxHp:max,
+    deteriorated
+  };
+
   const sources = Array.from({length:quantity},()=>foundry.utils.deepClone(source));
   return actor.createEmbeddedDocuments("Item",sources);
 }
@@ -1242,9 +1430,17 @@ function getMenace(actor, type) {
 }
 
 function sortLootEntries(a,b) {
-  const order = {Arme:1, Armure:2, Munition:3, Objet:4, Ressource:5, Résultat:6, Autre:9};
-  const ca = order[a.category] ?? 9;
-  const cb = order[b.category] ?? 9;
+  const order = {
+    Arme:1, Armure:2, Munition:3, Objet:4,
+    "Composants préservés":5,
+    "Composants détériorés":6,
+    "Récupération secondaire":7,
+    Ressource:8, Résultat:9,
+    "À arbitrer par le MJ":10,
+    Autre:20
+  };
+  const ca = order[a.category] ?? 20;
+  const cb = order[b.category] ?? 20;
   return ca - cb || String(a.name).localeCompare(String(b.name),"fr");
 }
 
