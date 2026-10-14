@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify persistent manual loot dialog
+        run: node tests/persistent-dialog.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-loot.js
