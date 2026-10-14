@@ -1,3 +1,11 @@
+## 0.5.1 — Génération en série sans fermeture de fenêtre
+
+- La fenêtre reste ouverte après une génération ; conserve le profil, le mode et les champs saisis pour une nouvelle opération.
+- Bouton **Exécuter** dans le formulaire et bouton **Fermer** explicite ; protection contre les doubles clics et l'exécution simultanée.
+- Affichage du résultat/erreur dans la fenêtre sans la fermer.
+- Concerne uniquement le dialogue MJ de **génération manuelle de butin** ; les fenêtres de récupération des joueurs restent inchangées.
+- Données et règles de génération inchangées. La fermeture du dialogue n'annule pas un document déjà créé.
+
 ## 0.5.0 — Rapport MJ des composants détruits
 - Les pièces détachables dont l'état final est **Détruite** restent totalement exclues du butin : aucun composant et aucune récupération secondaire.
 - Lors de la génération d'un butin Machine, H0D Loot crée désormais un **message privé aux MJ** listant uniquement ces pièces détruites.
