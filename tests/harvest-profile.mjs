@@ -95,4 +95,7 @@ assert(main.includes('await persistLoot(null,matched.revision.loot,token.documen
 assert(main.includes('await token.document.setFlag(MODULE_ID,HARVEST_FLAG,profile)'),"La règle est conservée après régénération.");
 assert(main.includes('Observation du scan / arbitrage MJ'),"Afficher la décision MJ sur les cartes.");
 assert(main.includes('    configureHarvest: configureHarvestForSelection'),"API H0D exposée.");
+assert(main.includes('mode:"directed",allowed,guaranteed:'));
+assert(!main.includes('<select name="mode">'));
+
 console.log("OK — Loot faune dirigé par scan, peau garantie, viande exclue, tirage pondéré, carcasses historiques et prélèvements préservés.");

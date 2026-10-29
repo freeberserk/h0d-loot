@@ -2,7 +2,7 @@
   "id": "h0d-loot",
   "title": "H0D Loot",
   "description": "H0D Loot : carcasses persistantes, récolte de faune dirigée par le MJ après scan, composants de machines et prélèvements autonomes.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"

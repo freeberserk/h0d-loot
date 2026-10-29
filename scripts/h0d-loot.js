@@ -986,11 +986,7 @@ async function configureHarvestForSelection(){
     content:`<div class="h0d-loot-dialog h0d-harvest-dialog">
       <p><strong>Cibles :</strong> ${tokens.map(t=>esc(t.name)).join(", ")}</p>
       <p>Le MJ fixe les ressources récupérables d'après la narration / le Focus ; ce n'est pas un tirage automatique de diagnostic.</p>
-      <div class="form-group"><label>Mode
-        <select name="mode">
-          <option value="free" ${selected(initial.mode,"free")}>Tirage habituel (table générique)</option>
-          <option value="directed" ${selected(initial.mode,"directed")}>Récolte dirigée MJ / scan</option>
-        </select></label></div>
+      <p><strong>Mode : récolte dirigée MJ.</strong> Le tirage aléatoire reste disponible via le bouton de butin classique.</p>
       <fieldset><legend>Ressources autorisées</legend>
         ${HARVEST_KINDS.map(({key,label})=>`<label style="display:block">
           <input type="checkbox" name="allow_${key}" ${checked(initial.allowed[key])}> ${esc(label)}</label>`).join("")}
@@ -1007,13 +1003,12 @@ async function configureHarvestForSelection(){
       </label></div>
       <label style="display:block"><input name="updateExisting" type="checkbox" checked>
         Corriger aussi le butin déjà généré (sans reroll ni suppression des prises)</label>
-      <small>Chiens sauvages : choisir « dirigée », décocher Viande, garder Peau,
-        garantir Peau. Laisser Os autorisé si souhaité.</small>
+      <small>Chiens sauvages : décocher Viande, garder Peau, garantir Peau. Laisser Os autorisé si souhaité.</small>
     </div>`
   },async fd=>{
     const allowed=Object.fromEntries(HARVEST_KINDS.map(x=>[x.key,fd["allow_"+x.key]==="on"]));
     const profile=normalizeHarvestProfile({
-      mode:fd.mode,allowed,guaranteed:String(fd.guaranteed??""),note:fd.note
+      mode:"directed",allowed,guaranteed:String(fd.guaranteed??""),note:fd.note
     });
     const updateExisting=fd.updateExisting==="on";
     const tableName=game.settings.get(MODULE_ID,"creatureTable");

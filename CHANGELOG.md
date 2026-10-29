@@ -1,3 +1,6 @@
+## 0.6.1
+- Récolte dirigée activée automatiquement à l'ouverture de l'outil MJ ; suppression du choix libre/dirigé dans cette fenêtre. Le bouton classique reste aléatoire.
+
 ## 0.6.0 — Récolte dirigée par le MJ après scan
 - Nouvel outil MJ pour définir, sur une ou plusieurs carcasses de faune, les familles de ressources autorisées et une ressource garantie.
 - Respect des tables et de leurs poids : viande, os, peau, trophée, autres résultats ; aucun barème ni objet inventé.
