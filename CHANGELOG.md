@@ -1,3 +1,11 @@
+## 0.6.0 — Récolte dirigée par le MJ après scan
+- Nouvel outil MJ pour définir, sur une ou plusieurs carcasses de faune, les familles de ressources autorisées et une ressource garantie.
+- Respect des tables et de leurs poids : viande, os, peau, trophée, autres résultats ; aucun barème ni objet inventé.
+- Cas concret chiens sauvages : désactiver la viande et garantir une peau.
+- Réconciliation des butins existants **sans reroll ni annulation des prélèvements** ; synchronisation des cartes et flags.
+- Note de scan visible dans la carte ; réglages persistants sur le token, conservés lors d'une régénération.
+- Machines et humanoïdes exclus de cette règle.
+
 ## 0.5.1 — Génération en série sans fermeture de fenêtre
 
 - La fenêtre reste ouverte après une génération ; conserve le profil, le mode et les champs saisis pour une nouvelle opération.

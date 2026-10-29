@@ -12,9 +12,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify persistent manual loot dialog
         run: node tests/persistent-dialog.mjs
+      - name: Verify fauna harvest constraints and persistence
+        run: |
+          node tests/harvest-profile.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-loot.js
+          node --check scripts/h0d-harvest.js
           python3 -m json.tool module.json > /dev/null
       - name: Package and publish release
         env:

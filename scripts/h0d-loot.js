@@ -1,4 +1,6 @@
+import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
+const HARVEST_FLAG = "harvestProfile";
 const SOCKET = `module.${MODULE_ID}`;
 const LOOT_FLAG = "loot";
 const TOKEN_FLAG = "generated";
@@ -121,6 +123,7 @@ Hooks.once("ready", async () => {
   if (mod) mod.api = {
     generate: generateControlled,
     manual: manualLootDialog,
+    configureHarvest: configureHarvestForSelection,
     regenerate: regenerateControlledLoot,
     open: openLootForCurrentSelection,
     reset: resetControlledLoot,
@@ -129,7 +132,7 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus)
   };
 
-  console.log("H0D Loot | v0.5.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -149,11 +152,19 @@ Hooks.on("getSceneControlButtons", controls => {
   };
 
   if (game.user?.isGM) {
+    tools.h0dLootHarvest = {
+      name:"h0dLootHarvest",
+      title:"H0D Loot — définir les ressources récupérables après scan (MJ)",
+      icon:"fa-solid fa-paw",
+      order:Object.keys(tools).length + 2,
+      button:true,visible:true,
+      onChange:()=>configureHarvestForSelection()
+    };
     tools.h0dLootRegenerate = {
       name: "h0dLootRegenerate",
       title: "H0D Loot — régénérer explicitement le butin sélectionné",
       icon: "fa-solid fa-rotate",
-      order: Object.keys(tools).length + 2,
+      order: Object.keys(tools).length + 3,
       button: true,
       visible: true,
       onChange: () => regenerateControlledLoot()
@@ -404,6 +415,8 @@ async function regenerateControlledLoot() {
 async function generateForToken(token, type) {
   const actor = token.actor;
   const creatureType = String(actor.system?.props?.H0D_Creature_Type || "");
+  const harvest=type==="creature"?
+    normalizeHarvestProfile(token.document.getFlag(MODULE_ID,HARVEST_FLAG)??{}):null;
   let loot;
 
   if (type === "humanoid") {
@@ -440,9 +453,14 @@ async function generateForToken(token, type) {
     if (!table) throw new Error(`Table introuvable : ${tableName}`);
 
     const lootMap = new Map();
-    if (draws > 0) {
-      const draw = await table.drawMany(draws, {displayChat:false, recursive:true});
-      for (const result of draw.results ?? []) addTableResult(lootMap, result, 1);
+    let effectiveDraws=draws;
+    if(type==="creature"&&harvest.mode==="directed"){
+      const selection=selectHarvestResults(table,harvest,draws);
+      effectiveDraws=selection.draws;
+      for(const result of selection.results)addTableResult(lootMap,result,1);
+    }else if(draws>0){
+      const draw=await table.drawMany(draws,{displayChat:false,recursive:true});
+      for(const result of draw.results??[])addTableResult(lootMap,result,1);
     }
 
     const rareNotes = [];
@@ -475,7 +493,8 @@ async function generateForToken(token, type) {
         menace:rawMenace,
         menaceUsed:menace,
         formula,
-        draws,
+        draws:effectiveDraws,
+        harvest:type==="creature"?harvest:null,
         rareNotes
       },
       items:[...lootMap.values()].sort(sortLootEntries),
@@ -583,7 +602,7 @@ function isNaturalAttackItem(item) {
 
 function addTableResult(map, result, quantity=1) {
   const flaggedId = result.getFlag?.(MODULE_ID, "resourceId") ?? result.flags?.[MODULE_ID]?.resourceId;
-  const text = String(result.text ?? result.name ?? "").trim();
+  const text = String(result.description || result.text || result.name || "").trim();
   let resource = flaggedId ? resourceLibrary.get(flaggedId) : null;
   if (!resource && text) resource = resourceByName.get(norm(text));
 
@@ -950,6 +969,94 @@ async function h0dPersistentDialog(options,run) {
 }
 
 
+/** Configuration MJ persistante sur chaque TokenDocument de faune. */
+async function configureHarvestForSelection(){
+  if(!game.user?.isGM)return;
+  const all=canvas?.tokens?.controlled??[];
+  const tokens=all.filter(token=>detectType(token.actor)==="creature");
+  if(!tokens.length)
+    return ui.notifications?.warn("H0D Loot : sélectionne une ou plusieurs carcasses de faune (ni machines ni PNJ).");
+  if(tokens.length!==all.length)
+    ui.notifications?.warn("H0D Loot : les machines et humanoïdes sélectionnés sont ignorés.");
+  const initial=normalizeHarvestProfile(tokens[0].document.getFlag(MODULE_ID,HARVEST_FLAG)??{});
+  const selected=(x,y)=>x===y?"selected":"";
+  const checked=x=>x?"checked":"";
+  await h0dPersistentDialog({
+    window:{title:"H0D Loot — récolte après scan ("+tokens.length+" carcasse(s))"},
+    content:`<div class="h0d-loot-dialog h0d-harvest-dialog">
+      <p><strong>Cibles :</strong> ${tokens.map(t=>esc(t.name)).join(", ")}</p>
+      <p>Le MJ fixe les ressources récupérables d'après la narration / le Focus ; ce n'est pas un tirage automatique de diagnostic.</p>
+      <div class="form-group"><label>Mode
+        <select name="mode">
+          <option value="free" ${selected(initial.mode,"free")}>Tirage habituel (table générique)</option>
+          <option value="directed" ${selected(initial.mode,"directed")}>Récolte dirigée MJ / scan</option>
+        </select></label></div>
+      <fieldset><legend>Ressources autorisées</legend>
+        ${HARVEST_KINDS.map(({key,label})=>`<label style="display:block">
+          <input type="checkbox" name="allow_${key}" ${checked(initial.allowed[key])}> ${esc(label)}</label>`).join("")}
+      </fieldset>
+      <div class="form-group"><label>Ressource garantie
+        <select name="guaranteed">
+          <option value="">Aucune</option>
+          ${HARVEST_KINDS.filter(x=>x.key!=="other").map(({key,label})=>
+            `<option value="${key}" ${selected(initial.guaranteed,key)}>${esc(label)}</option>`).join("")}
+        </select></label></div>
+      <div class="form-group"><label>Information établie par le scan / décision MJ
+        <textarea name="note" rows="2" maxlength="700"
+          placeholder="Ex. Viande peu consommable ; peau encore récupérable.">${esc(initial.note)}</textarea>
+      </label></div>
+      <label style="display:block"><input name="updateExisting" type="checkbox" checked>
+        Corriger aussi le butin déjà généré (sans reroll ni suppression des prises)</label>
+      <small>Chiens sauvages : choisir « dirigée », décocher Viande, garder Peau,
+        garantir Peau. Laisser Os autorisé si souhaité.</small>
+    </div>`
+  },async fd=>{
+    const allowed=Object.fromEntries(HARVEST_KINDS.map(x=>[x.key,fd["allow_"+x.key]==="on"]));
+    const profile=normalizeHarvestProfile({
+      mode:fd.mode,allowed,guaranteed:String(fd.guaranteed??""),note:fd.note
+    });
+    const updateExisting=fd.updateExisting==="on";
+    const tableName=game.settings.get(MODULE_ID,"creatureTable");
+    const table=game.tables.getName(tableName);
+    if(profile.mode==="directed"&&!table)
+      throw new Error("Table de faune introuvable : "+tableName);
+    // Construire toutes les corrections AVANT d'enregistrer les profils de groupe.
+    // Si une peau garantie n'existe pas dans la table, ne rien modifier.
+    const revisions=[];
+    for(const token of tokens){
+      const old=updateExisting?await getTokenLoot(token.document,{migrate:true}):null;
+      if(old){
+        const revision=reconcileHarvestLoot(old,profile,table,{
+          addResult:(items,result)=>{
+            const map=new Map();
+            for(const item of items){
+              const key=item.kind==="resource"&&item.resourceId?item.resourceId:
+                item.kind==="text"?"text:"+norm(item.name):item.entryId;
+              map.set(key,item);
+            }
+            addTableResult(map,result,1);
+            items.splice(0,items.length,...[...map.values()].sort(sortLootEntries));
+          }
+        });
+        revisions.push({token,revision});
+      }
+    }
+    let updated=0,claimed=0;
+    for(const token of tokens){
+      const matched=revisions.find(r=>r.token===token);
+      if(matched){
+        await persistLoot(null,matched.revision.loot,token.document);
+        claimed+=matched.revision.alreadyClaimed.length;
+        updated++;
+      }
+      await token.document.setFlag(MODULE_ID,HARVEST_FLAG,profile);
+    }
+    ui.notifications?.info("H0D Loot : scan / récolte enregistrés sur "+tokens.length+
+      " carcasse(s), "+updated+" butin(s) existant(s) corrigé(s)."+
+      (claimed?" Prélèvements antérieurs préservés, non repris aux PJ.":""));
+  });
+}
+
 async function manualLootDialog() {
   if (!game.user?.isGM) return;
   await h0dPersistentDialog({
@@ -1077,6 +1184,12 @@ function renderLootCard(loot) {
   const meta = sourceMeta(loot.source);
   const warning = Number(loot.source?.menace) > 10
     ? `<div class="h0d-loot-warning">Menace ${esc(loot.source.menace)} : barème plafonné à 10.</div>` : "";
+  const scanNote=loot.source?.harvest?.note?
+    `<div class="h0d-loot-rare"><strong>Observation du scan / arbitrage MJ :</strong> ${esc(loot.source.harvest.note)}</div>`:"";
+  const harvestBadge=loot.source?.harvest?.mode==="directed"?
+    `<div class="h0d-loot-rare"><strong>Récolte dirigée MJ :</strong> ${esc(
+      HARVEST_KINDS.filter(x=>loot.source.harvest.allowed?.[x.key]).map(x=>x.label).join(", ")||"Aucune ressource"
+    )}${loot.source.harvest.guaranteed?" · "+esc(HARVEST_LABELS[loot.source.harvest.guaranteed])+" garantie":""}</div>`:"";
   const rare = loot.source?.rareNotes?.length
     ? `<div class="h0d-loot-rare"><strong>Composants examinés :</strong> ${loot.source.rareNotes.map(esc).join(" · ")}</div>` : "";
 
@@ -1110,7 +1223,7 @@ function renderLootCard(loot) {
 
   return `<div class="h0d-loot-card" data-loot-id="${esc(loot.lootId)}">
     <header><div><strong>${esc(loot.title)}</strong><small>${esc(typeLabel)}${meta ? ` · ${esc(meta)}` : ""}</small></div><i class="fa-solid fa-box-open"></i></header>
-    ${warning}${rare}<section>${sections}</section><footer><span>Reste : <strong>${remaining}</strong></span>${allButton}</footer>
+    ${warning}${scanNote}${harvestBadge}${rare}<section>${sections}</section><footer><span>Reste : <strong>${remaining}</strong></span>${allButton}</footer>
   </div>`;
 }
 

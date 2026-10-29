@@ -1,3 +1,40 @@
+# H0D Loot v0.6.0 — Récolte cohérente avec le scan et la décision du MJ
+
+## Le principe
+
+Le système ne peut pas deviner ce que le MJ a dit aux joueurs pendant la séance. Désormais, le MJ peut **définir les ressources réellement récupérables** d'une ou plusieurs carcasses de faune, avec une ressource garantie et une note tirée du scan.
+
+Ce réglage ne change **ni le barème de Menace ni les poids** de la table générale ; il restreint les résultats éligibles et remplace un tirage par la ressource garantie.
+
+### Pour les chiens sauvages de la séance
+
+1. Sélectionner le(s) token(s) de chien(s) sauvage(s) dans la scène Foundry.
+2. Cliquer sur le nouvel outil **patte de faune — H0D Loot, récolte après scan** dans les outils de Tokens (réservé au MJ), ou utiliser l'API `game.modules.get("h0d-loot").api.configureHarvest()`.
+3. Choisir **Récolte dirigée MJ / scan**.
+4. **Décocher Viande**, laisser **Peau / fourrure** et éventuellement **Os** autorisés ; choisir **Ressource garantie : Peau / fourrure**. Ajouter une note telle que « Viande de mauvaise qualité ; peau intacte ». Le trophée rare peut également être désactivé.
+5. Conserver la case **Corriger aussi le butin déjà généré** pour que la carte existante soit mise à jour sans refaire tous les tirages.
+
+### Comportement
+
+- La règle est enregistrée **sur chaque token sélectionné** : elle survit à la réouverture de la carcasse et à une régénération explicite.
+- La **récolte libre** utilise exactement le fonctionnement précédent.
+- La **récolte dirigée** tire parmi les résultats autorisés de la RollTable des créatures, en respectant leurs poids. Une ressource garantie occupe d'abord **un tirage de la formule existante** (elle n'est pas une récompense gratuite supplémentaire).
+- Le MJ peut cocher « Autres résultats » pour autoriser des résultats personnalisés hors des quatre familles classiques.
+- Si la ressource garantie n'existe pas dans la table, le module refuse l'opération et **n'invente pas de nouvelle ressource**.
+- Pour un butin déjà généré, les ressources interdites **encore présentes** sont retirées, et la ressource garantie est ajoutée si elle manque. Le reste est conservé ; **pas de nouveau tirage aléatoire**.
+- Les **prélèvements déjà transférés** ne sont jamais révoqués. L'inventaire des joueurs et l'historique `claims` restent inchangés. Une ancienne prise peut donc apparaître à quantité zéro comme fait historique.
+- Les cartes de butin liées au token sont synchronisées par le système de persistance existant, et les notes de scan sont visibles.
+- Le bouton **↻ Régénérer** reste distinct, volontaire et nécessite confirmation. Modifier une règle de récolte n'exécute jamais ce bouton.
+
+### Limites délibérées
+
+- Rien n'est deviné à partir du nom « Chien sauvage » : le MJ décide, comme pour un loup, un sanglier ou un oiseau.
+- Aucune modification automatique des ressources de **machines** ou des **inventaires de PNJ/factions**.
+- La qualité médiocre de la viande est une **note narrative**, pas un nouvel item ni une règle sanitaire inventée.
+- Le réglage n'agit pas sur le générateur manuel sans token : celui-ci continue d'utiliser la table générique jusqu'à ce que des profils plus complets soient validés.
+- La récolte dirigée exige une RollTable **avec remise** (les tables H0D par défaut le sont).
+
+---
 ## 0.5.1 — Génération en série sans fermeture de fenêtre
 
 - La fenêtre reste ouverte après une génération ; conserve le profil, le mode et les champs saisis pour une nouvelle opération.
