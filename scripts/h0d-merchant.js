@@ -124,7 +124,7 @@ export function installMerchantSheetButton(app,html){
  if(!game.user?.isGM)return;
  const actor=app?.actor||app?.document;
  if(actor?.documentName!=="Actor"||!merchantState(actor).enabled)return;
- const root=typeof HTMLElement!=="undefined"&&html instanceof HTMLElement?html:html?.[0];
+ const root=app?.element instanceof HTMLElement?app.element:(typeof HTMLElement!=="undefined"&&html instanceof HTMLElement?html:html?.[0]);
  if(!root||root.querySelector("[data-h0d-merchant-sheet]"))return;
  const header=root.querySelector(".window-header");
  if(!header)return;
