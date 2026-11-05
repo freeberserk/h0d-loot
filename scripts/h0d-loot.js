@@ -135,7 +135,7 @@ Hooks.once("ready", async () => {
   };
 
   game.h0dMerchant=merchantAPI;
-  console.log("H0D Loot | v0.6.1 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.2 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -162,6 +162,18 @@ Hooks.on("getSceneControlButtons", controls => {
       order:Object.keys(tools).length + 2,
       button:true,visible:true,
       onChange:()=>configureHarvestForSelection()
+    };
+    tools.h0dMerchant = {
+      name:"h0dMerchant",
+      title:"H0D Commerce — stock marchand du token sélectionné (MJ)",
+      icon:"fa-solid fa-store",
+      order:Object.keys(tools).length + 4,
+      button:true,visible:true,
+      onChange:()=>{
+        const tokens=canvas?.tokens?.controlled||[];
+        if(tokens.length!==1||!tokens[0].actor)return ui.notifications.warn("H0D Commerce : sélectionne un seul token PNJ.");
+        return merchantAPI.openMerchant(tokens[0].actor);
+      }
     };
     tools.h0dLootRegenerate = {
       name: "h0dLootRegenerate",
