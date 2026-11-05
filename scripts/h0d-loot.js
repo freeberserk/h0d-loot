@@ -1,3 +1,4 @@
+import {merchantAPI} from "./h0d-merchant.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
 const HARVEST_FLAG = "harvestProfile";
@@ -129,10 +130,12 @@ Hooks.once("ready", async () => {
     reset: resetControlledLoot,
     menaceLoot: MENACE_LOOT,
     getResource: id => resourceLibrary.get(id) ?? null,
-    diagnose: () => foundry.utils.deepClone(compendiumStatus)
+    diagnose: () => foundry.utils.deepClone(compendiumStatus),
+    ...merchantAPI
   };
 
-  console.log("H0D Loot | v0.6.0 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  game.h0dMerchant=merchantAPI;
+  console.log("H0D Loot | v0.6.1 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("getSceneControlButtons", controls => {
