@@ -1,3 +1,7 @@
+## 0.6.2 — Marchands optionnels
+- Stock marchand hors encombrement via flags Actor, interface MJ, sélection d'un acheteur et import du stock de Senn depuis Catalogue.
+- Aucun transfert ni paiement automatique.
+
 ## 0.6.1
 - Récolte dirigée activée automatiquement à l'ouverture de l'outil MJ ; suppression du choix libre/dirigé dans cette fenêtre. Le bouton classique reste aléatoire.
 
