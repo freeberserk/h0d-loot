@@ -1,3 +1,12 @@
+## v0.6.3 — Édition du stock marchand
+
+- Accès depuis la fiche Actor du marchand via l'icône boutique dans l'en-tête (MJ uniquement, si rôle Marchand actif).
+- Édition des noms, quantités, prix, monnaies et notes ; ajout et suppression de marchandises.
+- Stock persistant en flags, hors encombrement ; stock existant conservé.
+- Les références libres peuvent être renseignées ; liaison au Builder Équipement et transferts automatiques prévus dans une étape ultérieure.
+- Les modifications sont enregistrées après validation ; le remplacement par le stock Senn exige une confirmation.
+- Validation en Foundry v14 encore nécessaire.
+
 ## v0.6.2 — Première étape du commerce (MJ)
 
 - Sélectionner un token PNJ puis cliquer sur l'outil **boutique** dans les contrôles de Tokens pour activer le rôle Marchand, choisir une fiche acheteur et consulter le stock.
