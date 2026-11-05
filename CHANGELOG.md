@@ -1,3 +1,6 @@
+## 0.6.3 — Édition des stocks marchands
+- Accès depuis l'en-tête Actor, modification des offres, ajout/suppression ; aucune transaction automatique.
+
 ## 0.6.2 — Marchands optionnels
 - Stock marchand hors encombrement via flags Actor, interface MJ, sélection d'un acheteur et import du stock de Senn depuis Catalogue.
 - Aucun transfert ni paiement automatique.
