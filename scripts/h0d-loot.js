@@ -1,4 +1,4 @@
-import {merchantAPI} from "./h0d-merchant.js";
+import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
 const HARVEST_FLAG = "harvestProfile";
@@ -135,8 +135,11 @@ Hooks.once("ready", async () => {
   };
 
   game.h0dMerchant=merchantAPI;
-  console.log("H0D Loot | v0.6.2 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.3 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
+
+Hooks.on("renderActorSheet", installMerchantSheetButton);
+Hooks.on("renderApplicationV2", installMerchantSheetButton);
 
 Hooks.on("getSceneControlButtons", controls => {
   if (!controls?.tokens?.tools) return;
