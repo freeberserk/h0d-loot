@@ -1,3 +1,11 @@
+## v0.6.2 — Première étape du commerce (MJ)
+
+- Sélectionner un token PNJ puis cliquer sur l'outil **boutique** dans les contrôles de Tokens pour activer le rôle Marchand, choisir une fiche acheteur et consulter le stock.
+- Stock stocké dans `flags.h0d-loot.merchant` : **pas d'Items embarqués**, donc pas de contribution à l'encombrement du PNJ.
+- Option **Charger le stock Senn** depuis H0D Catalogue : les quantités non précisées restent inconnues, et le remplacement exige confirmation.
+- API MJ : `game.h0dMerchant.openMerchant(actor)`, `setMerchantRole(actor,true)`, `setMerchantOffers(actor,offers)`, `assignMerchantBuyer(actor,pj)`, `importCatalogueStock(actor,key)`.
+- **Limite** : consultation et préparation uniquement. Aucun paiement, retrait d'objet, transfert ou synchronisation de stock automatique. Le stock reste présent si le rôle Marchand est désactivé.
+
 # H0D Loot v0.6.0 — Récolte cohérente avec le scan et la décision du MJ
 
 ## Le principe
