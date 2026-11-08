@@ -199,9 +199,9 @@ export async function linkSelectedMerchantTile() {
     ui.notifications?.info?.("H0D Commerce : liaison supprimée de la tuile.");
     return null;
   }
-  const selected=candidates.get(String(choice.actorId));
-  if (!selected) throw new Error("Le marchand choisi n’est plus disponible. Rouvre la fenêtre de liaison.");
-  const result = await linkTileToMerchant(tile,selected.actor);
+  const chosenMerchant=candidates.get(String(choice.actorId));
+  if (!chosenMerchant) throw new Error("Le marchand choisi n’est plus disponible. Rouvre la fenêtre de liaison.");
+  const result = await linkTileToMerchant(tile,chosenMerchant.actor);
   ui.notifications?.info?.("H0D Commerce : tuile liée à " + result.name + ".");
   return result;
 }
