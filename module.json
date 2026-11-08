@@ -1,8 +1,8 @@
 {
   "id": "h0d-loot",
   "title": "H0D Loot",
-  "description": "H0D Loot : carcasses persistantes, récolte de faune dirigée par le MJ après scan, composants de machines et prélèvements autonomes.",
-  "version": "0.6.11",
+  "description": "H0D Loot : carcasses persistantes, butins et stocks de conteneurs sur tokens, prélèvements sécurisés vers les PJ.",
+  "version": "0.6.12",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
