@@ -1,3 +1,17 @@
+## v0.6.11 — Sources canoniques des marchandises et ressources
+
+**H0D Catalogue v0.1.7 est la référence pour les Items.** H0D Loot reste responsable des états de carcasses, des transferts sécurisés, des RollTables et du commerce. Il ne crée pas un second catalogue.
+
+- L'éditeur de stock marchand propose les références **éligibles** de H0D Catalogue, et non toutes les anciennes entrées Equipment Builder. Les plans incomplets et les objets réservés n'y apparaissent pas.
+- Le stock exact Senn continue à être résolu via `getStockResolved` pour conserver ses 21 offres, prix et quantités spécifiques.
+- Une ressource correspondante est résolue par clé ou nom exact et type `resource`. Les **nouvelles ressources transférées** utilisent les propriétés CSB du Catalogue quand la correspondance est sûre ; la source compendium reste une source de template et d'image.
+- Si aucune référence canonique exacte n'existe, l'ancien circuit bibliothèque/compendium continue sans inventer d'équivalent.
+- Les ressources déjà dans les inventaires des PJ **ne sont pas modifiées**. L'historique des prélèvements et les butins persistants restent inchangés.
+- `game.modules.get("h0d-loot").api.equipmentCatalogueAudit()` liste les correspondances possibles des ressources historiques.
+- Si Catalogue est désactivé, l'éditeur et la récupération disposent du circuit historique comme secours, explicitement identifiable.
+
+Ce raccordement ne rend pas les transactions marchandes automatiques et n'implique pas de migration de fiches.
+
 ## v0.6.10 — Prélèvement autonome des carcasses (sans validation du MJ)
 
 - Après clic sur « Prendre 1 », « Prendre tout ce type » ou « Tout récupérer », le **joueur transfère directement vers son PJ possédé / contrôlé**. Aucune fenêtre d'approbation du MJ n'est affichée.

@@ -1,4 +1,5 @@
 import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
+import {catalogueApi,resolveCatalogueResource} from "./h0d-catalogue-link.js";
 import {merchantTileAPI,registerMerchantTileHooks} from "./h0d-merchant-tiles.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
@@ -132,13 +133,20 @@ Hooks.once("ready", async () => {
     reset: resetControlledLoot,
     menaceLoot: MENACE_LOOT,
     getResource: id => resourceLibrary.get(id) ?? null,
+    equipmentCatalogueAudit:()=>({
+      source:catalogueApi(game)?"H0D Catalogue":"ancien compendium/bibliothèque",
+      resources:[...resourceLibrary.values()].map(x=>{
+        const r=resolveCatalogueResource(x,catalogueApi(game));
+        return {id:x.id,name:x.name,catalogueKey:r.key,status:r.status};
+      })
+    }),
     diagnose: () => foundry.utils.deepClone(compendiumStatus),
     ...merchantAPI,
     ...merchantTileAPI
   };
 
   game.h0dMerchant={...merchantAPI,...merchantTileAPI};
-  console.log("H0D Loot | v0.6.10 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.11 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -600,6 +608,7 @@ function buildHumanoidLoot(actor) {
       sourceItemId:item.id,
       templateId,
       resourceId: templateId === RESOURCE_TEMPLATE_ID ? (item.getFlag?.(MODULE_ID,"resourceId") || resourceByName.get(norm(item.name))?.id || null) : null,
+      catalogueKey:item.getFlag?.("h0d-faction-builder","catalogueKey")||item.getFlag?.(MODULE_ID,"catalogueKey")||null,
       name:item.name,
       img:item.img || "icons/svg/item-bag.svg",
       quantity,
@@ -648,8 +657,10 @@ function addLoot(map, resource, quantity, note="", {category="Ressource", keyPre
     current.quantity += quantity;
     if (note && !current.note.includes(note)) current.note = [current.note, note].filter(Boolean).join(" · ");
   } else {
+    const canon=resolveCatalogueResource(resource,catalogueApi(game));
     map.set(key, {
       entryId:foundry.utils.randomID(), kind:"resource", resourceId:resource.id,
+      catalogueKey:canon.key??null,catalogueStatus:canon.status,
       name:resource.name, img:resource.source?.img || "icons/svg/item-bag.svg",
       quantity, category, note
     });
@@ -1585,6 +1596,7 @@ async function addMachinePartToActor(actor,entry,quantity) {
 async function addResourceToActor(actor, resourceId, quantity) {
   const resource = resourceLibrary.get(resourceId);
   if (!resource) throw new Error(`Ressource ${resourceId} absente de la bibliothèque H0D`);
+  const canonical=resolveCatalogueResource(resource,catalogueApi(game));
 
   const existing = actor.items.find(i => {
     const flagId = i.getFlag?.(MODULE_ID, "resourceId");
@@ -1596,6 +1608,9 @@ async function addResourceToActor(actor, resourceId, quantity) {
     const cur = Math.max(0, Math.floor(Number(existing.system?.props?.H0D_Ressource_Quantite || 0)));
     await existing.update({"system.props.H0D_Ressource_Quantite":String(cur + quantity)});
     if (!existing.getFlag?.(MODULE_ID, "resourceId")) await existing.setFlag(MODULE_ID, "resourceId", resourceId);
+    // Identité seulement : aucune migration des caractéristiques d'un Item de PJ.
+    if(canonical.key&&!existing.getFlag?.(MODULE_ID,"catalogueKey"))
+      await existing.setFlag(MODULE_ID,"catalogueKey",canonical.key);
     return existing;
   }
 
@@ -1613,11 +1628,17 @@ async function addResourceToActor(actor, resourceId, quantity) {
 
   source.system ??= {};
   source.system.props ??= {};
+  if(canonical.definition?.props){
+    // Nouvelle ressource uniquement : Catalogue prioritaire, compendium conservé
+    // comme modèle CSB et source d'image. Ne pas toucher aux Items déjà possédés.
+    source.system.props=foundry.utils.deepClone(canonical.definition.props);
+  }
   source.system.props.H0D_Ressource_Quantite = String(quantity);
   source.system.props.H0D_Stockage = "PJ";
   source.flags ??= {};
   source.flags[MODULE_ID] = {
     ...(source.flags[MODULE_ID] ?? {}), resourceId, sourceMode,
+    catalogueKey:canonical.key??null,catalogueStatus:canonical.status,
     sourcePack:sourceMode === "compendium" ? resourcePack?.collection ?? null : null
   };
 

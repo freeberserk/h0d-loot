@@ -1,3 +1,4 @@
+import {merchantCatalogueDefinitions} from "./h0d-catalogue-link.js";
 // H0D Commerce — Stock marchand optionnel, indépendant des Items embarqués.
 // Aucun achat ni prélèvement automatique dans cette première étape.
 const NS="h0d-loot", FLAG="merchant";
@@ -73,19 +74,21 @@ function readOffers(form,original,builderDefinitions=[]){
  const chosen=String(form.builderReference||"").trim();
  if(chosen){
   const def=builderDefinitions.find(d=>d.key===chosen);
-  if(!def)throw new Error("Référence Equipment Builder introuvable : "+chosen);
+  if(!def)throw new Error("Référence du catalogue introuvable : "+chosen);
   const quantity=readNumber(form.builderQuantity,"Quantité Builder");
   if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
-  result.push({reference:def.key,name:def.name,quantity,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Source : H0D Equipment Builder"});
+  result.push({reference:def.key,name:def.name,quantity,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Référence de l’inventaire commun H0D (Catalogue prioritaire)"});
  }
  return result;
 }
 export async function openMerchant(actorValue){
- ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
+ ensureGM();
+ if(game.modules?.get("h0d-catalogue")?.active)await game.h0dCatalogue?.whenReady?.();
+ const actor=actorOf(actorValue),state=merchantState(actor);
  const buyers=game.actors.contents.filter(a=>a.id!==actor.id&&a.type!=="_template");
  const options=['<option value="">Aucun PJ associé</option>',...buyers.map(a=>`<option value="${esc(a.id)}" ${state.buyerId===a.id?"selected":""}>${esc(a.name)}</option>`)].join("");
- const builder=game.h0dEquipmentBuilder;
- const builderDefinitions=typeof builder?.getReferenceCatalog==="function"?builder.getReferenceCatalog().filter(d=>d?.key&&d?.name).sort((a,b)=>a.name.localeCompare(b.name,"fr")):[];
+ const selector=merchantCatalogueDefinitions(game);
+ const builderDefinitions=selector.definitions.sort((a,b)=>a.name.localeCompare(b.name,"fr"));
  const categoryLabels={weapon:"Armes",armor:"Armures",ammo:"Munitions",ammunition:"Munitions",object:"Objets",resource:"Ressources"};
  const grouped=new Map();
  for(const def of builderDefinitions){
@@ -107,9 +110,9 @@ export async function openMerchant(actorValue){
    <div style="max-height:55vh;overflow-y:auto;padding:5px">
    <p><strong>Marchandises (${state.offers.length})</strong> — quantité vide = inconnue. Cocher ✕ pour retirer.</p>
    ${merchantEditorRows(state.offers)}
-   <fieldset><legend>Ajouter depuis H0D Equipment Builder</legend>
-   ${builderDefinitions.length?`<select name="builderReference" aria-label="Article Equipment Builder"><option value="">— Choisir un article —</option>${builderOptions}</select>
-   <div style="display:flex;gap:6px;margin-top:5px"><input name="builderQuantity" placeholder="Quantité ?" aria-label="Quantité Builder"><input name="builderPrice" placeholder="Prix ?" aria-label="Prix Builder"><input name="builderCurrency" value="jetons" aria-label="Monnaie Builder"></div>`:"<p>Equipment Builder indisponible ou catalogue vide. Activer le module pour sélectionner des références.</p>"}
+   <fieldset><legend>Ajouter depuis ${esc(selector.source)}</legend>
+   ${builderDefinitions.length?`<select name="builderReference" aria-label="Article du catalogue H0D"><option value="">— Choisir un article —</option>${builderOptions}</select>
+   <div style="display:flex;gap:6px;margin-top:5px"><input name="builderQuantity" placeholder="Quantité ?" aria-label="Quantité Builder"><input name="builderPrice" placeholder="Prix ?" aria-label="Prix Builder"><input name="builderCurrency" value="jetons" aria-label="Monnaie Builder"></div>`:"<p>Références du catalogue indisponibles. Activer H0D Catalogue.</p>"}
    </fieldset>
    </div>
    <div class="form-group"><label>Action</label><select name="operation">

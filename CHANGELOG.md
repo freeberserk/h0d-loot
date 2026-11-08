@@ -1,3 +1,9 @@
+## v0.6.11 — H0D Catalogue source de référence pour les marchands et les nouvelles ressources
+- Liste des offres éligibles provenant du Catalogue plutôt que des seules définitions Equipment Builder.
+- Résolution contrôlée des ressources ; propriétés canoniques sur nouvelles prises uniquement, inventaires antérieurs inchangés.
+- Stock Senn, pénuries inconnues et RollTables conservés.
+- API d'audit des ressources historiques sans fusion automatique.
+
 ## v0.6.10 — Prélèvement autonome des carcasses (sans validation du MJ)
 
 - Après clic sur « Prendre 1 », « Prendre tout ce type » ou « Tout récupérer », le **joueur transfère directement vers son PJ possédé / contrôlé**. Aucune fenêtre d'approbation du MJ n'est affichée.
