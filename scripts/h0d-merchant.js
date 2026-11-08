@@ -92,7 +92,19 @@ export async function openMerchant(actorValue){
  const options=['<option value="">Aucun PJ associé</option>',...buyers.map(a=>`<option value="${esc(a.id)}" ${state.buyerId===a.id?"selected":""}>${esc(a.name)}</option>`)].join("");
  const builder=game.h0dEquipmentBuilder;
  const builderDefinitions=typeof builder?.getReferenceCatalog==="function"?builder.getReferenceCatalog().filter(d=>d?.key&&d?.name).sort((a,b)=>a.name.localeCompare(b.name,"fr")):[];
- const builderOptions=builderDefinitions.map(d=>`<option value="${esc(d.key)}">${esc(d.name)} — ${esc(d.kind||"Objet")}</option>`).join("");
+ const categoryLabels={weapon:"Armes",armor:"Armures",ammo:"Munitions",ammunition:"Munitions",object:"Objets",resource:"Ressources"};
+ const grouped=new Map();
+ for(const def of builderDefinitions){
+  const kind=String(def.kind||"autre").toLowerCase();
+  const label=categoryLabels[kind]||("Autres — "+kind);
+  if(!grouped.has(label))grouped.set(label,[]);
+  grouped.get(label).push(def);
+ }
+ const categoryOrder=["Armes","Armures","Munitions","Objets","Ressources"];
+ const builderOptions=Array.from(grouped.entries()).sort((a,b)=>{
+  const ai=categoryOrder.indexOf(a[0]),bi=categoryOrder.indexOf(b[0]);
+  return (ai<0?99:ai)-(bi<0?99:bi)||a[0].localeCompare(b[0],"fr");
+ }).map(([label,defs])=>`<optgroup label="${esc(label)}">${defs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)}</option>`).join("")}</optgroup>`).join("");
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
   content:`<p>Stock commercial hors encombrement. Aucun transfert ni paiement automatique.</p>
