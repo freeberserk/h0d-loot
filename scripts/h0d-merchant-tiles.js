@@ -13,7 +13,7 @@ const CATEGORY_ORDER = ["Armes","Armures","Munitions","Objets","Ressources","Aut
 const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
 const clone = value => foundry.utils.deepClone(value);
 let attachedBoard = null;
-const syncPending = new Set();
+const syncPending = new Map();
 let syncRunning = false;
 
 function requireGM() {
@@ -29,12 +29,16 @@ function resolveActor(value) {
   if (actor?.documentName !== "Actor") throw new Error("Fiche de marchand introuvable.");
   return actor;
 }
+function merchantSourceKey(actor) {
+  return actor?.uuid || actor?.token?.uuid || (actor?.id ? `Actor.${actor.id}` : null);
+}
 function publicSnapshot(actor) {
   const state = merchantAPI.getMerchant(actor);
   const enabled = state.enabled === true;
   return {
     version:1,
     actorId:actor.id,
+    sourceUuid:merchantSourceKey(actor),
     name:String(actor.name ?? "Marchand"),
     enabled,
     offers:enabled ? (state.offers || []).map(offer => {
@@ -78,7 +82,9 @@ export async function syncMerchantTiles(actorValue) {
   for (const scene of game.scenes?.contents || []) {
     for (const tile of scene.tiles || []) {
       const previous = tile.getFlag(NS,TILE_FLAG);
-      if (previous?.actorId !== actor.id) continue;
+      // Les anciens liens (sans sourceUuid) continuent de cibler un Actor du répertoire.
+      if (previous?.sourceUuid ? previous.sourceUuid !== snapshot.sourceUuid :
+          (actor.isToken || previous?.actorId !== actor.id)) continue;
       if (JSON.stringify(previous) === JSON.stringify(snapshot)) continue;
       await tile.setFlag(NS,TILE_FLAG,snapshot);
       count++;
@@ -86,20 +92,19 @@ export async function syncMerchantTiles(actorValue) {
   }
   return count;
 }
-function queueTileSync(actorId) {
-  if (!game.user?.isGM) return;
-  syncPending.add(actorId);
+function queueTileSync(actor) {
+  if (!game.user?.isGM || actor?.documentName !== "Actor") return;
+  const key=merchantSourceKey(actor);
+  if (!key) return;
+  syncPending.set(key,actor);
   if (syncRunning) return;
   syncRunning = true;
   void (async () => {
     try {
       while (syncPending.size) {
-        const ids = [...syncPending];
+        const actors=[...syncPending.values()];
         syncPending.clear();
-        for (const id of ids) {
-          const actor = game.actors?.get(id);
-          if (actor) await syncMerchantTiles(actor);
-        }
+        for (const source of actors) await syncMerchantTiles(source);
       }
     } catch(err) {
       console.error("H0D Commerce | synchronisation de tuiles",err);
@@ -160,17 +165,32 @@ export async function linkSelectedMerchantTile() {
   if (selected.length !== 1) throw new Error("Sélectionne une seule tuile dans les contrôles de tuiles.");
   const tile = resolveTile(selected[0]);
   const previous = getTileStorefront(tile);
-  const actors = game.actors.contents.filter(actor =>
-    actor.type !== "_template" && merchantAPI.getMerchant(actor).enabled
-  ).sort((a,b)=>a.name.localeCompare(b.name,"fr"));
-  const choices = actors.map(actor => '<option value="' + esc(actor.id) + '" ' +
-    (previous?.actorId === actor.id ? 'selected' : '') + '>' + esc(actor.name) + '</option>').join("");
+  // Un Actor porté par un token non lié peut avoir ses propres flags de commerce.
+  // Il ne figure pas dans game.actors ; il doit donc être proposé séparément.
+  const candidates=new Map();
+  for (const actor of game.actors?.contents || []) {
+    if (actor.type === "_template" || !merchantAPI.getMerchant(actor).enabled) continue;
+    const key=merchantSourceKey(actor);
+    if (key) candidates.set(key,{actor,label:actor.name+" (répertoire)"});
+  }
+  for (const scene of game.scenes?.contents || []) {
+    for (const token of scene.tokens?.contents || []) {
+      const actor=token.actor;
+      if (!actor?.isToken || !merchantAPI.getMerchant(actor).enabled) continue;
+      const key=merchantSourceKey(actor);
+      if (key) candidates.set(key,{actor,label:actor.name+" (token — "+scene.name+")"});
+    }
+  }
+  const entries=[...candidates.entries()].sort((a,b)=>a[1].label.localeCompare(b[1].label,"fr"));
+  const choices=entries.map(([key,{actor,label}])=>'<option value="'+esc(key)+'" '+
+    ((previous?.sourceUuid === key || (!previous?.sourceUuid && !actor.isToken && previous?.actorId === actor.id)) ? 'selected' : '')+
+    '>'+esc(label)+'</option>').join("");
   const choice = await foundry.applications.api.DialogV2.input({
     window:{title:"H0D — Associer la tuile : " + (tile.name || "Stock marchand")},
     content:'<p>Cette tuile reste décorative pour Foundry, mais un double-clic ouvre sa vitrine aux joueurs.</p>' +
       '<div class="form-group"><label>Marchand lié</label><select name="actorId">' +
       '<option value="">— Aucun (détacher la vitrine) —</option>' + choices + '</select></div>' +
-      (actors.length ? '' : '<p>Aucun PNJ n’a actuellement le rôle Marchand activé.</p>'),
+      (entries.length ? '' : '<p>Aucun Marchand actif trouvé dans le répertoire ni sur les tokens des scènes. Active le rôle Marchand dans le monde de test.</p>'),
     ok:{label:"Enregistrer",icon:"fa-solid fa-link"}
   });
   if (!choice) return null;
@@ -179,7 +199,9 @@ export async function linkSelectedMerchantTile() {
     ui.notifications?.info?.("H0D Commerce : liaison supprimée de la tuile.");
     return null;
   }
-  const result = await linkTileToMerchant(tile,choice.actorId);
+  const selected=candidates.get(String(choice.actorId));
+  if (!selected) throw new Error("Le marchand choisi n’est plus disponible. Rouvre la fenêtre de liaison.");
+  const result = await linkTileToMerchant(tile,selected.actor);
   ui.notifications?.info?.("H0D Commerce : tuile liée à " + result.name + ".");
   return result;
 }
@@ -231,7 +253,12 @@ export function registerMerchantTileHooks() {
   Hooks.on("canvasTearDown",removeCanvasListener);
   Hooks.once("ready",installCanvasListener);
   Hooks.on("updateActor",(actor,changes) => {
-    if(game.user?.isGM && merchantFlagChanged(changes)) queueTileSync(actor.id);
+    if(game.user?.isGM && merchantFlagChanged(changes)) queueTileSync(actor);
+  });
+  Hooks.on("updateToken",(token,changes) => {
+    if (!game.user?.isGM || !token?.actor?.isToken) return;
+    const delta=changes.delta || changes.actorData;
+    if (delta && merchantFlagChanged(delta)) queueTileSync(token.actor);
   });
   Hooks.on("getSceneControlButtons",controls => {
     if(!game.user?.isGM) return;
