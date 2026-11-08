@@ -1,3 +1,10 @@
+## v0.6.4 — Sélection depuis H0D Equipment Builder
+
+- L'éditeur du stock marchand propose les références de `game.h0dEquipmentBuilder.getReferenceCatalog()` lorsque le Builder est actif.
+- L'ajout conserve la clé et le nom canoniques, avec quantité, prix et monnaie définis par le MJ.
+- Les stocks précédents et les articles libres sont conservés. Aucun transfert ni paiement automatique.
+- Aucune modification requise des templates Actor ni du Builder ; validation en jeu encore nécessaire.
+
 ## v0.6.3 — Édition du stock marchand
 
 - Accès depuis la fiche Actor du marchand via l'icône boutique dans l'en-tête (MJ uniquement, si rôle Marchand actif).
