@@ -1,3 +1,23 @@
+## v0.6.12 — Coffres et stocks sur tokens (plus de tuiles)
+
+Le **template Conteneur v1.0** de H0D Template Manager utilise le stock `flags.h0d-loot.merchant`, sans Items embarqués. Son fonctionnement repose maintenant directement sur le token du coffre.
+
+**Pour le MJ :** mettre un coffre sur la scène, ouvrir **Stock marchand** depuis sa fiche (ou les contrôles des tokens), activer le rôle Marchand si le mode est « Stock marchand », puis définir ou importer les offres. Sélectionner le token et cliquer sur **H0D Loot — ouvrir ou générer le butin** pour afficher sa carte de stock dans le chat.
+
+**Pour les joueurs :** cibler le coffre avec **T**, puis cliquer sur le bouton **H0D Loot** des contrôles des tokens. Une carte privée partagée avec les MJ présente les articles, prix et quantités, avec les commandes de retrait. Aucune tuile n'est nécessaire.
+
+- **Quantités :** toute quantité absente/vide est interprétée comme **1** (modifiable dans le stock marchand), tandis que **0** et les quantités positives restent inchangées. Les anciennes valeurs absentes ne sont pas réécrites lors du simple affichage.
+- **Conditionnement :** la quantité du stock représente le nombre de lots, et non toujours le nombre d’unités. Pour Senn, une offre « Flèches renforcées ×5 » avec quantité **1** remet **5 flèches** au PJ, conformément au conditionnement explicite de H0D Catalogue. Le nom du lot suit l’objet transféré.
+- **Butin / Réserve :** « Prendre 1 », « Prendre tout ce type » et « Tout récupérer » peuvent remettre les objets dans l'inventaire du PJ ; les accès restent narratifs et doivent être arbitrés par le MJ.
+- **Stock marchand :** « Prendre 1 » et « Prendre tout ce type » remettent les objets, mais **aucune monnaie n'est prélevée**. Le MJ doit arbitrer les achats et ajuster les jetons manuellement. Le retrait global est désactivé dans ce mode.
+- **Sécurité :** seuls les PJ possédés par le demandeur sont destinataires, le MJ actif effectue les écritures, le stock est relu à chaque retrait et les demandes concurrentes du même coffre sont sérialisées.
+- **Données canoniques :** le transfert exige H0D Equipment Builder actif et une référence exacte pouvant être générée. Si une référence manque ou est incomplète, la prise échoue sans modifier sa quantité ; aucun objet n'est inventé.
+- **Compatibilité :** les anciens stocks du marchand et le butin de carcasse persistent. Les tuiles et leurs flags existants ne sont pas effacés, mais l'ancienne interface des tuiles n'est plus activée.
+
+**Tests :** automatisation statique / simulation effectuée ; comportement réel à vérifier avec **Foundry v14**, un compte MJ et un compte joueur. Cette version ne représente pas encore un module d'achat avec paiement automatique.
+
+---
+
 ## v0.6.11 — Sources canoniques des marchandises et ressources
 
 **H0D Catalogue v0.1.7 est la référence pour les Items.** H0D Loot reste responsable des états de carcasses, des transferts sécurisés, des RollTables et du commerce. Il ne crée pas un second catalogue.

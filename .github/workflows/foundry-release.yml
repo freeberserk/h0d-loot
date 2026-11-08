@@ -15,11 +15,9 @@ jobs:
       - name: Verify fauna harvest constraints and persistence
         run: |
           node tests/harvest-profile.mjs
-      - name: Verify merchant tile integration
+      - name: Verify token container stock and legacy loot
         run: |
-          node tests/merchant-tile.mjs
-          node tests/merchant-token-actors.mjs
-          node tests/merchant-player-tool.mjs
+          node tests/container-token-stock.mjs
           node tests/player-autonomous-loot.mjs
           node tests/catalogue-link.mjs
       - name: Validate JavaScript and manifest
@@ -27,6 +25,7 @@ jobs:
           node --check scripts/h0d-loot.js
           node --check scripts/h0d-harvest.js
           node --check scripts/h0d-merchant.js
+          node --check scripts/h0d-container.js
           node --check scripts/h0d-merchant-tiles.js
           node --check scripts/h0d-catalogue-link.js
           python3 -m json.tool module.json > /dev/null
