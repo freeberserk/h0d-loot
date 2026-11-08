@@ -177,7 +177,9 @@ async function updateCards(tokenDoc) {
 }
 
 async function processClaim(data) {
-  const key=String(data.tokenUuid || "");
+  // Deux tokens liés au même Actor partagent le même stock : une seule file de retraits.
+  const tokenDoc=await helpers.resolveTokenDocument(data.tokenUuid);
+  const key=String(tokenDoc?.actor?.uuid || data.tokenUuid || "");
   const previous=pending.get(key)||Promise.resolve();
   let release;
   const gate=new Promise(resolve=>{release=resolve;});
