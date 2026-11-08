@@ -138,7 +138,7 @@ Hooks.once("ready", async () => {
   };
 
   game.h0dMerchant={...merchantAPI,...merchantTileAPI};
-  console.log("H0D Loot | v0.6.9 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.10 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -1151,7 +1151,11 @@ function migrateLoot(raw, tokenUuid=null) {
 }
 
 async function surfaceTokenLoot(tokenDoc, loot, {privateToUser=false} = {}) {
-  const whisper = privateToUser ? [game.user.id] : null;
+  // Le MJ actif doit recevoir la carte privée pour traiter automatiquement
+  // les demandes socket. Il ne valide rien manuellement.
+  const whisper = privateToUser
+    ? [...new Set([game.user.id,...game.users.filter(u=>u.isGM).map(u=>u.id)])]
+    : null;
   const message = await createLootMessage(loot, {whisper, tokenDoc});
 
   if (game.user?.isGM) {
@@ -1407,7 +1411,24 @@ async function onSocketMessage(data) {
   }
 }
 
+// Sérialisation sur une même carcasse pour empêcher deux joueurs de récupérer
+// simultanément le dernier exemplaire d'un composant.
+const pendingClaimQueues = new Map();
 async function processClaim(data) {
+  const key=String(data.tokenUuid || data.lootId || data.messageId || "");
+  const previous=pendingClaimQueues.get(key) || Promise.resolve();
+  let release;
+  const gate=new Promise(resolve => { release=resolve; });
+  const tail=previous.then(()=>gate);
+  pendingClaimQueues.set(key,tail);
+  await previous;
+  try { return await processClaimSerialized(data); }
+  finally {
+    release();
+    if (pendingClaimQueues.get(key)===tail) pendingClaimQueues.delete(key);
+  }
+}
+async function processClaimSerialized(data) {
   const respond = (ok, message) => {
     if (data.userId === game.user.id) {
       (ok ? ui.notifications?.info : ui.notifications?.warn)?.call(ui.notifications, message);
@@ -1417,7 +1438,12 @@ async function processClaim(data) {
   try {
     const user = game.users.get(data.userId);
     const message = game.messages.get(data.messageId);
-    if (!user || !message) return respond(false, "H0D Loot : demande invalide ou expirée.");
+    // Les anciennes cartes chuchotées au joueur seul peuvent être absentes
+    // de game.messages côté MJ. Pour une carcasse, le flag Token reste
+    // la source canonique et permet le transfert sans validation manuelle.
+    if (!user || (!message && !data.tokenUuid)) {
+      return respond(false, "H0D Loot : demande invalide ou expirée. Rouvre la carcasse.");
+    }
 
     const actor = await resolveRecipientActor(data, user);
     if (!actor) return respond(false, "H0D Loot : personnage destinataire introuvable.");
@@ -1432,7 +1458,7 @@ async function processClaim(data) {
       if (!tokenDoc) return respond(false, "H0D Loot : la carcasse n’existe plus.");
       loot = await getTokenLoot(tokenDoc, {migrate:true});
     }
-    if (!loot) loot = migrateLoot(message.getFlag(MODULE_ID, LOOT_FLAG));
+    if (!loot && message) loot = migrateLoot(message.getFlag(MODULE_ID, LOOT_FLAG));
     if (!loot?.items) return respond(false, "H0D Loot : carte de butin invalide.");
     if (data.lootId && loot.lootId !== data.lootId) return respond(false, "H0D Loot : cette carte n’est plus à jour. Rouvre la carcasse.");
 
