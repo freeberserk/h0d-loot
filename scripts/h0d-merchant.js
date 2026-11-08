@@ -6,10 +6,15 @@ const clone=v=>foundry.utils.deepClone(v);
 const esc=v=>foundry.utils.escapeHTML(String(v??""));
 function ensureGM(){if(!game.user?.isGM)throw new Error("H0D Commerce : réservé au MJ.");}
 function actorOf(value){const actor=typeof value==="string"?game.actors.get(value):value;if(!actor||actor.documentName!=="Actor")throw new Error("Actor marchand introuvable.");return actor;}
-function merchantState(actor){return clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null});}
+function merchantState(actor){
+ const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null});
+ // Lecture compatible des anciens stocks : "quantité inconnue" devient 1 sans modifier l'Actor.
+ state.offers=(state.offers||[]).map(o=>({...o,quantity:o.quantity===null||o.quantity===undefined||String(o.quantity).trim()===""?1:o.quantity}));
+ return state;
+}
 function normalizeOffer(o){
- const quantity=o.quantity===null?null:Number(o.quantity);
- if(quantity!==null&&(!Number.isSafeInteger(quantity)||quantity<0))throw new Error("Quantité invalide.");
+ const quantity=o.quantity===null||o.quantity===undefined||String(o.quantity).trim()===""?1:Number(o.quantity);
+ if(!Number.isSafeInteger(quantity)||quantity<0)throw new Error("Quantité invalide.");
  return {reference:String(o.reference||""),name:String(o.name||o.reference||"Article"),quantity,
  price:Number.isFinite(Number(o.price))&&Number(o.price)>=0?Number(o.price):null,currency:String(o.currency||"jetons"),
  notes:String(o.notes||"")};
@@ -38,8 +43,8 @@ export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03
  if(!stock)throw new Error("Stock du catalogue introuvable : "+key);
  const offers=stock.offres.map(o=>({
    reference:o.reference,name:o.nom_pour_la_scene||o.objet?.name||o.reference,
-   // Une quantité inconnue reste inconnue, jamais un stock illimité.
-   quantity:Number.isSafeInteger(o.quantite_disponible)&&o.quantite_disponible>=0?o.quantite_disponible:null,
+   // Une quantité absente devient un exemplaire, sans modifier les quantités explicites.
+   quantity:Number.isSafeInteger(o.quantite_disponible)&&o.quantite_disponible>=0?o.quantite_disponible:1,
    price:typeof o.prix_jetons==="number"?o.prix_jetons:null,currency:"jetons",notes:o.notes||""
  }));
  const actor=actorOf(actorValue),state=merchantState(actor);
@@ -50,7 +55,7 @@ export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03
 function merchantEditorRows(offers){
  return offers.map((o,i)=>`<div class="h0d-merchant-line" style="display:grid;grid-template-columns:minmax(110px,2fr) 80px 90px 90px 50px;gap:6px;align-items:center;margin-bottom:5px">
  <input aria-label="Nom" name="name_${i}" value="${esc(o.name)}" title="Article">
- <input aria-label="Quantité" name="quantity_${i}" value="${o.quantity===null?"":esc(o.quantity)}" placeholder="?" title="Quantité : vide = inconnue">
+ <input aria-label="Quantité" name="quantity_${i}" value="${esc(o.quantity??1)}" placeholder="1" title="Quantité : vide = 1">
  <input aria-label="Prix" name="price_${i}" value="${o.price===null?"":esc(o.price)}" placeholder="?" title="Prix : vide = à définir">
  <input aria-label="Monnaie" name="currency_${i}" value="${esc(o.currency)}" title="Monnaie">
  <label title="Supprimer"><input type="checkbox" name="remove_${i}"> ✕</label>
@@ -66,7 +71,7 @@ function readOffers(form,original,builderDefinitions=[]){
  const result=[];
  for(let i=0;i<original.length;i++){
   if(form["remove_"+i]===true||form["remove_"+i]==="on")continue;
-  const quantity=readNumber(form["quantity_"+i],"Quantité");
+  const quantity=readNumber(form["quantity_"+i],"Quantité")??1;
   if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
   result.push({reference:original[i].reference,name:form["name_"+i]||original[i].name,quantity,
    price:readNumber(form["price_"+i],"Prix"),currency:form["currency_"+i]||"jetons",notes:form["notes_"+i]||""});
@@ -75,7 +80,7 @@ function readOffers(form,original,builderDefinitions=[]){
  if(chosen){
   const def=builderDefinitions.find(d=>d.key===chosen);
   if(!def)throw new Error("Référence du catalogue introuvable : "+chosen);
-  const quantity=readNumber(form.builderQuantity,"Quantité Builder");
+  const quantity=readNumber(form.builderQuantity,"Quantité Builder")??1;
   if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
   result.push({reference:def.key,name:def.name,quantity,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Référence de l’inventaire commun H0D (Catalogue prioritaire)"});
  }
@@ -104,15 +109,15 @@ export async function openMerchant(actorValue){
  }).map(([label,defs])=>`<optgroup label="${esc(label)}">${defs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)}</option>`).join("")}</optgroup>`).join("");
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
-  content:`<p>Stock commercial hors encombrement. Aucun transfert ni paiement automatique.</p>
+  content:`<p>Stock commercial hors encombrement. Retrait depuis le token avec H0D Loot ; paiement manuel.</p>
    <div class="form-group"><label>Rôle Marchand</label><input type="checkbox" name="enabled" ${state.enabled?"checked":""}></div>
    <div class="form-group"><label>Fiche acheteur</label><select name="buyer">${options}</select></div>
    <div style="max-height:55vh;overflow-y:auto;padding:5px">
-   <p><strong>Marchandises (${state.offers.length})</strong> — quantité vide = inconnue. Cocher ✕ pour retirer.</p>
+   <p><strong>Marchandises (${state.offers.length})</strong> — quantité vide = 1 par défaut. Cocher ✕ pour retirer.</p>
    ${merchantEditorRows(state.offers)}
    <fieldset><legend>Ajouter depuis ${esc(selector.source)}</legend>
    ${builderDefinitions.length?`<select name="builderReference" aria-label="Article du catalogue H0D"><option value="">— Choisir un article —</option>${builderOptions}</select>
-   <div style="display:flex;gap:6px;margin-top:5px"><input name="builderQuantity" placeholder="Quantité ?" aria-label="Quantité Builder"><input name="builderPrice" placeholder="Prix ?" aria-label="Prix Builder"><input name="builderCurrency" value="jetons" aria-label="Monnaie Builder"></div>`:"<p>Références du catalogue indisponibles. Activer H0D Catalogue.</p>"}
+   <div style="display:flex;gap:6px;margin-top:5px"><input name="builderQuantity" placeholder="1" aria-label="Quantité Builder"><input name="builderPrice" placeholder="Prix ?" aria-label="Prix Builder"><input name="builderCurrency" value="jetons" aria-label="Monnaie Builder"></div>`:"<p>Références du catalogue indisponibles. Activer H0D Catalogue.</p>"}
    </fieldset>
    </div>
    <div class="form-group"><label>Action</label><select name="operation">
