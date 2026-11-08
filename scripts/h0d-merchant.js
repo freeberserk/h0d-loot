@@ -15,8 +15,11 @@ function merchantState(actor){
  const packs=new Map((stock?.offres||[]).map(o=>[o.reference,o.quantite_par_achat]));
  state.offers=(state.offers||[]).map(o=>{
    const perPurchase=Number.isSafeInteger(o.perPurchase)&&o.perPurchase>0?o.perPurchase:packs.get(o.reference);
+   const missing=o.quantity===null||o.quantity===undefined||String(o.quantity).trim()==="";
+   const numericQuantity=missing?1:Number(o.quantity);
+   // Les anciennes quantités numériques textuelles restent des quantités explicites.
    return {...o,
-     quantity:o.quantity===null||o.quantity===undefined||String(o.quantity).trim()===""?1:o.quantity,
+     quantity:Number.isSafeInteger(numericQuantity)&&numericQuantity>=0?numericQuantity:o.quantity,
      perPurchase:Number.isSafeInteger(perPurchase)&&perPurchase>0?perPurchase:1};
  });
  return state;
