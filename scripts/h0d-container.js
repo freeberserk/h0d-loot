@@ -121,6 +121,11 @@ async function requestContainerClaim(card,offerIndex,quantity) {
 }
 
 async function transferOffer(actor,offer,quantity) {
+  // La quantité du stock compte les lots ; un lot peut contenir plusieurs unités (Senn : flèches ×5).
+  const perPurchase=Number(offer.perPurchase);
+  if(!Number.isSafeInteger(perPurchase)||perPurchase<1||!Number.isSafeInteger(quantity)||quantity<1||
+     !Number.isSafeInteger(quantity*perPurchase)) throw new Error("Conditionnement ou quantité invalide.");
+  const units=quantity*perPurchase;
   // Seule une référence exacte permet une création ; ne jamais deviner un Item.
   const builder = game.h0dEquipmentBuilder;
   if (!offer.reference || !builder?.getDefinition || !builder?.buildItem)
@@ -149,14 +154,14 @@ async function transferOffer(actor,offer,quantity) {
       helpers.sameStackVariant(item,original));
     if (existing) {
       const current = Math.max(0,Math.floor(Number(existing.system?.props?.[quantityField]) || 0));
-      await existing.update({["system.props."+quantityField]:String(current+quantity)});
+      await existing.update({["system.props."+quantityField]:String(current+units)});
       return;
     }
-    source.system.props[quantityField] = String(quantity);
+    source.system.props[quantityField] = String(units);
     await actor.createEmbeddedDocuments("Item",[freshSource()]);
     return;
   }
-  await actor.createEmbeddedDocuments("Item",Array.from({length:quantity},freshSource));
+  await actor.createEmbeddedDocuments("Item",Array.from({length:units},freshSource));
 }
 
 async function updateCards(tokenDoc) {
