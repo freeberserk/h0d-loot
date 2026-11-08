@@ -75,3 +75,50 @@
   color:#cf765d;
   padding:0 4px;
 }
+
+/* v0.6.7 — Vitrine marchande sur tuile, sans accès à l'Actor du PNJ */
+.h0d-storefront {
+  min-width: min(450px, 75vw);
+  max-width: 700px;
+  background: linear-gradient(150deg, #1f3032 0%, #142125 100%);
+  border: 1px solid #577879;
+  color: #f1eee5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.h0d-storefront header {
+  display:flex; align-items:center; gap:12px;
+  padding:14px 18px;
+  background: rgba(8,13,16,.55);
+  border-bottom: 1px solid rgba(122,186,174,.3);
+}
+.h0d-storefront header i { color:#e4b573; font-size:2rem; }
+.h0d-storefront header strong { display:block; font-size:1.2rem; color:#f9efdb; }
+.h0d-storefront header small { display:block; font-size:.81rem; color:#a9cecd; margin-top:3px; }
+.h0d-storefront-body {
+  max-height:55vh; overflow-y:auto; padding:8px 14px 14px;
+}
+.h0d-storefront-category { margin:10px 0 16px; }
+.h0d-storefront-category h3 {
+  font-size:.84rem; text-transform:uppercase; letter-spacing:.08em;
+  color:#e4b573; padding:0 4px 6px; margin:0 0 2px;
+  border-bottom:1px solid rgba(222,184,121,.34);
+}
+.h0d-storefront-row {
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(86px,auto) minmax(90px,auto);
+  gap:12px; align-items:center; padding:9px 6px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.h0d-storefront-row:nth-child(odd) { background:rgba(255,255,255,.045); }
+.h0d-storefront-name { font-weight:600; overflow-wrap:anywhere; }
+.h0d-storefront-quantity { font-size:.9rem; text-align:right; color:#b6d5d4; }
+.h0d-storefront-price { text-align:right; color:#f2d6a5; font-weight:700; overflow-wrap:anywhere; }
+.h0d-storefront footer {
+  padding:11px 15px; background:rgba(0,0,0,.25);
+  border-top:1px solid rgba(122,186,174,.22);
+  font-size:.81rem; color:#c1c8c6;
+}
+@media (max-width:540px) {
+  .h0d-storefront { min-width:0; width:100%; }
+  .h0d-storefront-row { gap:6px; grid-template-columns:minmax(0,1fr) 78px 74px; }
+}
