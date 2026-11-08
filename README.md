@@ -1,3 +1,16 @@
+## v0.6.9 — Consultation des étals sans sélection de tuile (joueurs)
+
+Foundry v14 ne permet pas aux joueurs de sélectionner les tuiles comme le MJ. H0D Loot propose désormais un accès supplémentaire indépendant de cette sélection.
+
+- Dans les **contrôles des Tokens**, nouveau bouton **« H0D Commerce — consulter les marchands de la scène »**, accessible aux MJ et aux joueurs.
+- Une seule vitrine accessible : elle s'ouvre directement. Plusieurs vitrines : fenêtre de choix des marchands.
+- Seules les **tuiles visibles et liées à un marchand actif sur la scène actuelle** sont proposées ; aucune permission sur l'Actor marchand ou sur le calque Tuiles n'est requise.
+- Le **double-clic sur la tuile** reste disponible en complément (à confirmer sur chaque configuration Foundry).
+- Aucun changement des stocks, liens de tuiles ou droits de PJ ; aucun achat automatique.
+- Un test automatise l'ouverture de la vitrine depuis la barre d'outils avec un compte joueur sans accès aux Actors.
+
+**Test** : charger la scène avec le compte joueur, sélectionner les **contrôles des Tokens** à gauche, puis cliquer sur l'icône boutique « consulter les marchands ». La fenêtre doit afficher les offres de Raska. Ne pas chercher à sélectionner sa tuile avec le joueur : cette opération est réservée au MJ dans Foundry.
+
 ## v0.6.8 — Correctif : marchands sur tokens non liés
 
 - Le sélecteur de la tuile recherche désormais les marchands du répertoire **et** les Actors synthétiques des tokens présents sur les scènes. Un marchand configuré directement sur un token non lié n'est plus ignoré.
