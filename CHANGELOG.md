@@ -1,3 +1,29 @@
+## v0.6.7 — Vitrine marchande liée à une tuile Foundry v14
+
+Cette version utilise **une tuile déjà placée sur la scène** : aucun JSON de tuile à exporter, importer ou recréer. Le stock du marchand reste sur l'Actor, **hors encombrement**.
+
+**Configurer la tuile (MJ)** :
+1. Vérifier que H0D Loot v0.6.7 est actif et que le PNJ possède le rôle Marchand activé.
+2. Sur la scène, passer aux **contrôles des tuiles**, sélectionner **une seule tuile** (par exemple « Stock Marchand »).
+3. Cliquer sur l'outil **boutique — lier la tuile sélectionnée à un marchand** dans les contrôles des tuiles.
+4. Choisir le PNJ Marchand, puis valider. L'association est sauvegardée sur la tuile.
+5. Pour retirer la liaison : sélectionner la même tuile et choisir « Aucun (détacher la vitrine) ».
+
+**Consultation (joueurs)** : sur la scène, **double-cliquer sur l'image de la tuile**, sans passer par l'outil Tuiles (réservé au MJ). Une fenêtre affiche les offres par catégorie avec quantités et prix, sans accès à la fiche du marchand. Le MJ peut aussi tester depuis un autre outil que celui d'édition des tuiles.
+
+**Fonctionnement** :
+- `flags.h0d-loot.merchant` sur l'Actor reste la **source du stock**. La tuile conserve uniquement un **instantané public filtré** (`flags.h0d-loot.merchantTile`) : nom du marchand, nom/catégorie des articles, quantité, prix et monnaie. **Aucune note privée, fiche d'Actor, droit de propriété ou inventaire personnel** n'est transmis aux joueurs.
+- Les changements du stock et du rôle Marchand mettent à jour les tuiles associées via le client MJ connecté. Si le MJ est hors ligne pendant une modification effectuée par une autre voie, la tuile peut montrer la dernière version publiée ; le MJ peut resynchroniser ensuite.
+- Une tuile masquée n'est pas interactive pour les joueurs. La désactivation du rôle Marchand suspend la vitrine sans effacer la liaison.
+- Les tuiles et le stock existants sont conservés. La publication en chat de v0.6.6 reste disponible.
+- Aucun transfert d'objet ni paiement automatique dans cette version.
+
+**API MJ de secours**, si le bouton des contrôles des tuiles n'est pas affiché dans une configuration Foundry :
+`game.h0dMerchant.linkSelectedMerchantTile()` ouvre le même sélecteur sur la tuile actuellement sélectionnée.
+`game.h0dMerchant.syncMerchantTiles(actor)` republie son stock sur toutes les tuiles liées.
+
+**Validation** : tests de structure/syntaxe automatisés réussis en CI ; le déclenchement du double-clic et l'affichage côté joueur nécessitent encore un test réel sous Foundry v14.
+
 ## v0.6.6 — Vitrine publique et catalogue uniquement
 - Suppression du formulaire « Ajouter une marchandise libre » ; ajouts via H0D Equipment Builder uniquement.
 - Nouvelle action « Enregistrer et publier la vitrine aux joueurs » : crée une carte de chat publique avec les offres, quantités et prix, sans accès à la fiche PNJ.
