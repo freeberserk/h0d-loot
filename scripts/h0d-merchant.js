@@ -8,14 +8,25 @@ function ensureGM(){if(!game.user?.isGM)throw new Error("H0D Commerce : réserv�
 function actorOf(value){const actor=typeof value==="string"?game.actors.get(value):value;if(!actor||actor.documentName!=="Actor")throw new Error("Actor marchand introuvable.");return actor;}
 function merchantState(actor){
  const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null});
- // Lecture compatible des anciens stocks : "quantité inconnue" devient 1 sans modifier l'Actor.
- state.offers=(state.offers||[]).map(o=>({...o,quantity:o.quantity===null||o.quantity===undefined||String(o.quantity).trim()===""?1:o.quantity}));
+ // Lecture des anciens stocks : quantité non définie = 1, sans réécriture immédiate.
+ // Les conditionnements historiques (Senn vend notamment un demi-lot de flèches) viennent du Catalogue exact.
+ const catalogue=typeof game!=="undefined"&&game?.modules?.get("h0d-catalogue")?.active?game.h0dCatalogue:null;
+ const stock=state.stockKey&&catalogue?.getStock?.(state.stockKey);
+ const packs=new Map((stock?.offres||[]).map(o=>[o.reference,o.quantite_par_achat]));
+ state.offers=(state.offers||[]).map(o=>{
+   const perPurchase=Number.isSafeInteger(o.perPurchase)&&o.perPurchase>0?o.perPurchase:packs.get(o.reference);
+   return {...o,
+     quantity:o.quantity===null||o.quantity===undefined||String(o.quantity).trim()===""?1:o.quantity,
+     perPurchase:Number.isSafeInteger(perPurchase)&&perPurchase>0?perPurchase:1};
+ });
  return state;
 }
 function normalizeOffer(o){
  const quantity=o.quantity===null||o.quantity===undefined||String(o.quantity).trim()===""?1:Number(o.quantity);
  if(!Number.isSafeInteger(quantity)||quantity<0)throw new Error("Quantité invalide.");
- return {reference:String(o.reference||""),name:String(o.name||o.reference||"Article"),quantity,
+ const perPurchase=o.perPurchase===undefined||o.perPurchase===null?1:Number(o.perPurchase);
+ if(!Number.isSafeInteger(perPurchase)||perPurchase<1)throw new Error("Conditionnement invalide.");
+ return {reference:String(o.reference||""),name:String(o.name||o.reference||"Article"),quantity,perPurchase,
  price:Number.isFinite(Number(o.price))&&Number(o.price)>=0?Number(o.price):null,currency:String(o.currency||"jetons"),
  notes:String(o.notes||"")};
 }
@@ -45,6 +56,7 @@ export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03
    reference:o.reference,name:o.nom_pour_la_scene||o.objet?.name||o.reference,
    // Une quantité absente devient un exemplaire, sans modifier les quantités explicites.
    quantity:Number.isSafeInteger(o.quantite_disponible)&&o.quantite_disponible>=0?o.quantite_disponible:1,
+   perPurchase:Number.isSafeInteger(o.quantite_par_achat)&&o.quantite_par_achat>0?o.quantite_par_achat:1,
    price:typeof o.prix_jetons==="number"?o.prix_jetons:null,currency:"jetons",notes:o.notes||""
  }));
  const actor=actorOf(actorValue),state=merchantState(actor);
@@ -74,6 +86,7 @@ function readOffers(form,original,builderDefinitions=[]){
   const quantity=readNumber(form["quantity_"+i],"Quantité")??1;
   if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
   result.push({reference:original[i].reference,name:form["name_"+i]||original[i].name,quantity,
+   perPurchase:original[i].perPurchase||1,
    price:readNumber(form["price_"+i],"Prix"),currency:form["currency_"+i]||"jetons",notes:form["notes_"+i]||""});
  }
  const chosen=String(form.builderReference||"").trim();
@@ -82,7 +95,7 @@ function readOffers(form,original,builderDefinitions=[]){
   if(!def)throw new Error("Référence du catalogue introuvable : "+chosen);
   const quantity=readNumber(form.builderQuantity,"Quantité Builder")??1;
   if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
-  result.push({reference:def.key,name:def.name,quantity,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Référence de l’inventaire commun H0D (Catalogue prioritaire)"});
+  result.push({reference:def.key,name:def.name,quantity,perPurchase:1,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Référence de l’inventaire commun H0D (Catalogue prioritaire)"});
  }
  return result;
 }
