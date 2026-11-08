@@ -1,3 +1,7 @@
+## v0.6.5 — Catégories du stock marchand
+- Le sélecteur Equipment Builder regroupe désormais les références par type (armes, armures, munitions, objets, ressources, autres types présents), avec ordre alphabétique dans chaque groupe.
+- Les données et les transactions ne changent pas. Aucun template CSB modifié.
+
 ## v0.6.4 — Sélection depuis H0D Equipment Builder
 
 - L'éditeur du stock marchand propose les références de `game.h0dEquipmentBuilder.getReferenceCatalog()` lorsque le Builder est actif.
