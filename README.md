@@ -1,3 +1,9 @@
+## v0.6.6 — Vitrine publique et catalogue uniquement
+- Suppression du formulaire « Ajouter une marchandise libre » ; ajouts via H0D Equipment Builder uniquement.
+- Nouvelle action « Enregistrer et publier la vitrine aux joueurs » : crée une carte de chat publique avec les offres, quantités et prix, sans accès à la fiche PNJ.
+- La publication est un instantané : les changements suivants nécessitent une nouvelle publication. Aucun achat ni paiement automatique.
+- Les stocks existants et les références libres historiques sont conservés et restent modifiables/supprimables.
+
 ## v0.6.5 — Catégories du stock marchand
 - Le sélecteur Equipment Builder regroupe désormais les références par type (armes, armures, munitions, objets, ressources, autres types présents), avec ordre alphabétique dans chaque groupe.
 - Les données et les transactions ne changent pas. Aucun template CSB modifié.
