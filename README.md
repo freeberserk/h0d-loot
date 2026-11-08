@@ -7,6 +7,7 @@ Le **template Conteneur v1.0** de H0D Template Manager utilise le stock `flags.h
 **Pour les joueurs :** cibler le coffre avec **T**, puis cliquer sur le bouton **H0D Loot** des contrôles des tokens. Une carte privée partagée avec les MJ présente les articles, prix et quantités, avec les commandes de retrait. Aucune tuile n'est nécessaire.
 
 - **Quantités :** toute quantité absente/vide est interprétée comme **1** (modifiable dans le stock marchand), tandis que **0** et les quantités positives restent inchangées. Les anciennes valeurs absentes ne sont pas réécrites lors du simple affichage.
+- **Conditionnement :** la quantité du stock représente le nombre de lots, et non toujours le nombre d’unités. Pour Senn, une offre « Flèches renforcées ×5 » avec quantité **1** remet **5 flèches** au PJ, conformément au conditionnement explicite de H0D Catalogue. Le nom du lot suit l’objet transféré.
 - **Butin / Réserve :** « Prendre 1 », « Prendre tout ce type » et « Tout récupérer » peuvent remettre les objets dans l'inventaire du PJ ; les accès restent narratifs et doivent être arbitrés par le MJ.
 - **Stock marchand :** « Prendre 1 » et « Prendre tout ce type » remettent les objets, mais **aucune monnaie n'est prélevée**. Le MJ doit arbitrer les achats et ajuster les jetons manuellement. Le retrait global est désactivé dans ce mode.
 - **Sécurité :** seuls les PJ possédés par le demandeur sont destinataires, le MJ actif effectue les écritures, le stock est relu à chaque retrait et les demandes concurrentes du même coffre sont sérialisées.
