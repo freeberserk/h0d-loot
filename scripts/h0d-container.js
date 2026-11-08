@@ -137,6 +137,9 @@ async function transferOffer(actor,offer,quantity) {
   const original = await builder.buildItem(offer.reference,{mode:"skip"});
   if (!original) throw new Error("Impossible de générer l'Item canonique : "+offer.reference);
   const source = helpers.prepareLootedItemSource(original.toObject());
+  // L'intitulé commercial d'un lot (ex. ×5 chez Senn) reste visible dans l'inventaire,
+  // sans modifier les propriétés mécaniques de la définition canonique.
+  source.name = offer.name || source.name;
   source.flags ||= {};
   source.flags[NS] = {...(source.flags[NS] || {}),looted:true,containerReference:offer.reference};
   // Chaque Item cloné conserve une identité CSB indépendante de son prototype.
