@@ -15,10 +15,14 @@ jobs:
       - name: Verify fauna harvest constraints and persistence
         run: |
           node tests/harvest-profile.mjs
+      - name: Verify merchant tile integration
+        run: node tests/merchant-tile.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-loot.js
           node --check scripts/h0d-harvest.js
+          node --check scripts/h0d-merchant.js
+          node --check scripts/h0d-merchant-tiles.js
           python3 -m json.tool module.json > /dev/null
       - name: Package and publish release
         env:
