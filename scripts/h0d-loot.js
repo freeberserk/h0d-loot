@@ -1,10 +1,12 @@
 import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
+import {merchantTileAPI,registerMerchantTileHooks} from "./h0d-merchant-tiles.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
 const HARVEST_FLAG = "harvestProfile";
 const SOCKET = `module.${MODULE_ID}`;
 const LOOT_FLAG = "loot";
 const TOKEN_FLAG = "generated";
+registerMerchantTileHooks();
 
 const MENACE_LOOT = {
   1: "1d3",
@@ -131,11 +133,12 @@ Hooks.once("ready", async () => {
     menaceLoot: MENACE_LOOT,
     getResource: id => resourceLibrary.get(id) ?? null,
     diagnose: () => foundry.utils.deepClone(compendiumStatus),
-    ...merchantAPI
+    ...merchantAPI,
+    ...merchantTileAPI
   };
 
-  game.h0dMerchant=merchantAPI;
-  console.log("H0D Loot | v0.6.6 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  game.h0dMerchant={...merchantAPI,...merchantTileAPI};
+  console.log("H0D Loot | v0.6.7 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
