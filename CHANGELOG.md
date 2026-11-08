@@ -1,3 +1,13 @@
+## v0.6.8 — Correctif : marchands sur tokens non liés
+
+- Le sélecteur de la tuile recherche désormais les marchands du répertoire **et** les Actors synthétiques des tokens présents sur les scènes. Un marchand configuré directement sur un token non lié n'est plus ignoré.
+- Les options distinguent « (répertoire) » et « (token — Nom de la scène) » pour éviter les confusions si plusieurs exemplaires d'un PNJ existent.
+- Chaque vitrine mémorise la source exacte de son stock ; les mises à jour d'un token ne remplacent pas celles de l'Actor du répertoire (ou d'un autre token).
+- Les anciennes tuiles liées à des Actors du répertoire restent compatibles. Aucun stock n'est réinitialisé, aucune donnée d'inventaire personnel n'est modifiée.
+- Test automatisé du cas token non lié ajouté, en plus des contrôles structurels existants. Validation de l'interface en jeu encore nécessaire.
+
+**Test** : mettre à jour H0D Loot, vérifier sur le token PNJ que « Rôle Marchand » est activé, sélectionner la tuile et rouvrir « Associer la tuile ». L'entrée du marchand doit apparaître avec son origine.
+
 ## v0.6.7 — Vitrine marchande liée à une tuile Foundry v14
 
 Cette version utilise **une tuile déjà placée sur la scène** : aucun JSON de tuile à exporter, importer ou recréer. Le stock du marchand reste sur l'Actor, **hors encombrement**.
