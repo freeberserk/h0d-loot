@@ -1,3 +1,13 @@
+## v0.6.10 — Prélèvement autonome des carcasses (sans validation du MJ)
+
+- Après clic sur « Prendre 1 », « Prendre tout ce type » ou « Tout récupérer », le **joueur transfère directement vers son PJ possédé / contrôlé**. Aucune fenêtre d'approbation du MJ n'est affichée.
+- Les cartes privées ouvertes par les joueurs sont désormais adressées aussi aux MJ : le client MJ principal reçoit automatiquement la demande de transfert. Cela répare une situation où la carte privée était introuvable côté MJ.
+- Les anciennes cartes privées de carcasses peuvent être traitées depuis le butin canonique enregistré sur le Token, même si la carte n'apparaît pas dans les messages du MJ.
+- Les prélèvements simultanés d'une même carcasse sont sérialisés afin d'éviter qu'un même composant soit prélevé plusieurs fois.
+- Les contrôles d'appartenance du PJ, de quantité restante, d'identité de la carcasse et la mise à jour des cartes sont conservés.
+- **Un client MJ actif reste nécessaire techniquement** pour appliquer les modifications protégées par Foundry, mais **n'a aucune action de validation à effectuer**. Les transactions hors connexion MJ ne sont pas couvertes.
+- Validation en serveur Foundry v14 requise : tests automatisés de présence des garde-fous réussis.
+
 ## v0.6.9 — Consultation des étals sans sélection de tuile (joueurs)
 
 Foundry v14 ne permet pas aux joueurs de sélectionner les tuiles comme le MJ. H0D Loot propose désormais un accès supplémentaire indépendant de cette sélection.
