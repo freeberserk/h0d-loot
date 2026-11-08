@@ -1,13 +1,12 @@
 import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
 import {catalogueApi,resolveCatalogueResource} from "./h0d-catalogue-link.js";
-import {merchantTileAPI,registerMerchantTileHooks} from "./h0d-merchant-tiles.js";
+import {isContainerToken,openContainerForGM,openContainerForPlayer,registerContainerSupport} from "./h0d-container.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
 const HARVEST_FLAG = "harvestProfile";
 const SOCKET = `module.${MODULE_ID}`;
 const LOOT_FLAG = "loot";
 const TOKEN_FLAG = "generated";
-registerMerchantTileHooks();
 
 const MENACE_LOOT = {
   1: "1d3",
@@ -122,6 +121,7 @@ Hooks.once("ready", async () => {
   if (game.user.isGM) await ensureDefaultTables();
 
   game.socket.on(SOCKET, onSocketMessage);
+  registerContainerSupport({chooseRecipientActor,resolveRecipientActor,resolveTokenDocument,actorOwnedByUser,isPrimaryGM,primaryGM,prepareLootedItemSource,sameStackVariant});
 
   const mod = game.modules.get(MODULE_ID);
   if (mod) mod.api = {
@@ -141,12 +141,11 @@ Hooks.once("ready", async () => {
       })
     }),
     diagnose: () => foundry.utils.deepClone(compendiumStatus),
-    ...merchantAPI,
-    ...merchantTileAPI
+    ...merchantAPI
   };
 
-  game.h0dMerchant={...merchantAPI,...merchantTileAPI};
-  console.log("H0D Loot | v0.6.11 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  game.h0dMerchant={...merchantAPI};
+  console.log("H0D Loot | v0.6.12 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -160,7 +159,7 @@ Hooks.on("getSceneControlButtons", controls => {
     name: "h0dLoot",
     title: game.user?.isGM
       ? "H0D Loot — ouvrir ou générer le butin"
-      : "H0D Loot — ouvrir le butin de la carcasse ciblée",
+      : "H0D Loot — ouvrir le butin de la carcasse ou du conteneur ciblé",
     icon: "fa-solid fa-box-open",
     order: Object.keys(tools).length + 1,
     button: true,
@@ -350,6 +349,11 @@ async function gmOpenOrGenerate() {
   if (!tokens.length) return manualLootDialog();
 
   for (const token of tokens) {
+    if (isContainerToken(token)) {
+      try { await openContainerForGM(token.document); }
+      catch (error) { ui.notifications?.warn("H0D : "+error.message); }
+      continue;
+    }
     const existing = await getTokenLoot(token.document, {migrate:true});
     if (existing) {
       await surfaceTokenLoot(token.document, existing, {privateToUser:false});
@@ -371,22 +375,27 @@ async function playerOpenTargetedLoot() {
   }
 
   const targets = Array.from(game.user?.targets ?? []);
-  const controlledWithLoot = (canvas?.tokens?.controlled ?? []).filter(t => t.document.getFlag(MODULE_ID, TOKEN_FLAG));
+  const controlledWithLoot = (canvas?.tokens?.controlled ?? []).filter(t => t.document.getFlag(MODULE_ID, TOKEN_FLAG) || isContainerToken(t));
   const candidates = targets.length ? targets : controlledWithLoot;
 
   if (!candidates.length) {
-    return ui.notifications?.warn("H0D Loot : cible une carcasse avec l’outil de ciblage (T), puis reclique sur H0D Loot.");
+    return ui.notifications?.warn("H0D Loot : cible une carcasse ou un conteneur (T), puis reclique sur H0D Loot.");
   }
 
   let opened = 0;
   for (const token of candidates) {
+    if (isContainerToken(token)) {
+      await openContainerForPlayer(token.document);
+      opened++;
+      continue;
+    }
     const loot = await getTokenLoot(token.document, {migrate:false});
     if (!loot) continue;
     await surfaceTokenLoot(token.document, loot, {privateToUser:true});
     opened++;
   }
 
-  if (!opened) ui.notifications?.warn("H0D Loot : aucune carcasse ciblée ne possède de butin généré.");
+  if (!opened) ui.notifications?.warn("H0D Loot : aucune carcasse avec butin ni conteneur ciblé.");
 }
 
 async function generateControlled() {
