@@ -1,3 +1,14 @@
+## v0.6.12 — Coffres et stocks accessibles depuis les tokens (sans tuiles)
+- Le template `H0D_Actor-template-conteneur v1.0` se consulte directement depuis le token, comme une carcasse : cibler avec T puis utiliser **H0D Loot**. Le MJ peut sélectionner le token et utiliser le même outil.
+- La carte de stock du coffre affiche les marchandises et leurs quantités ; les PJ peuvent **Prendre 1** ou **Prendre tout ce type**. **Tout récupérer** n'est proposé que hors mode Marchand.
+- Transfert automatisé vers le PJ possédé/contrôlé via le MJ actif, avec contrôle des droits, stock réel relu sur l'Actor, sérialisation des retraits concurrents et mise à jour des cartes.
+- Pour le mode **Stock marchand**, le prélèvement **ne débite pas la monnaie** : confirmation informative côté joueur et paiement à régler avec le MJ. Ce n'est pas encore un système d'achat sécurisé.
+- Les offres sans quantité (null, valeur absente ou champ vide) sont affichées avec une **quantité par défaut de 1**. Les valeurs déjà renseignées, notamment 0, sont conservées. La valeur 1 devient persistante à la sauvegarde ou au premier prélèvement.
+- Les nouvelles importations du stock Senn appliquent également cette règle ; aucune migration globale ni modification des inventaires existants à l'activation.
+- Les objets transférés proviennent d'une **référence exacte** H0D Equipment Builder / Catalogue. Les références non générables sont refusées sans diminution du stock ; aucune substitution approximative.
+- L'accès public par **tuiles** est désactivé. Les anciens flags de tuiles restent inchangés pour permettre un retour arrière.
+- Tests automatisés ajoutés. **Validation en situation sur Foundry VTT v14 encore nécessaire**.
+
 ## v0.6.11 — H0D Catalogue source de référence pour les marchands et les nouvelles ressources
 - Liste des offres éligibles provenant du Catalogue plutôt que des seules définitions Equipment Builder.
 - Résolution contrôlée des ressources ; propriétés canoniques sur nouvelles prises uniquement, inventaires antérieurs inchangés.
