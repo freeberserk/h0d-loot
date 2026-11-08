@@ -13,9 +13,12 @@ const extract=(text,start,end)=>{
 
 // Conservation des anciens stocks : null / vide => 1, mais 0 reste explicite.
 const core=extract(merchant,"function merchantState(actor)","export async function setMerchantRole");
-const {merchantState,normalizeOffer}=new Function("clone","NS","FLAG",
+const {merchantState,normalizeOffer}=new Function("clone","NS","FLAG","game",
   core+";return {merchantState,normalizeOffer};")(
-    value=>structuredClone(value),"h0d-loot","merchant"
+    value=>structuredClone(value),"h0d-loot","merchant",
+    {modules:{get:id=>({active:id==="h0d-catalogue"})},
+     h0dCatalogue:{getStock:key=>key==="longue-corde-senn-p03"?
+       {offres:[{reference:"fleches-renforcees",quantite_par_achat:5}]}:null}}
   );
 const actor={getFlag:()=>({enabled:true,offers:[
   {reference:"a",name:"A",quantity:null},
@@ -26,6 +29,11 @@ const actor={getFlag:()=>({enabled:true,offers:[
 assert.deepEqual(merchantState(actor).offers.map(o=>o.quantity),[1,0,7,1]);
 for(const missing of [null,undefined,""])assert.equal(normalizeOffer({reference:"a",quantity:missing}).quantity,1);
 assert.equal(normalizeOffer({reference:"b",quantity:0}).quantity,0);
+assert.equal(normalizeOffer({reference:"b",quantity:1,price:null}).price,null);
+assert.equal(normalizeOffer({reference:"b",quantity:1,price:0}).price,0);
+assert.equal(merchantState({getFlag:()=>({stockKey:"longue-corde-senn-p03",offers:[
+  {reference:"fleches-renforcees",quantity:null}
+]})}).offers[0].perPurchase,5,"Senn vend un lot de cinq flèches, même sur un ancien stock.");
 assert.throws(()=>normalizeOffer({reference:"b",quantity:-1}),/Quantité invalide/);
 assert.match(merchant,/quantity:Number\.isSafeInteger\(o\.quantite_disponible\).*:1,/);
 
@@ -46,4 +54,7 @@ assert.match(container,/state\.offers\[op\.index\]\.quantity -= op\.qty/);
 assert.match(container,/await merchantAPI\.setMerchantOffers\(source,state\.offers\)/);
 assert.match(container,/card\.mode !== 'Marchand'/);
 assert.match(container,/Paiement à gérer avec le MJ/);
+assert.match(container,/const units=quantity\*perPurchase/);
+assert.match(container,/source\.system\.props\[quantityField\] = String\(units\)/);
+assert.match(container,/source\.name = offer\.name \|\| source\.name/);
 console.log("OK: H0D conteneurs sur tokens ; quantités sûres et transferts encadrés.");
