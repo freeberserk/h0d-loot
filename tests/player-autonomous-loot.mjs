@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+const js=await readFile(new URL("../scripts/h0d-loot.js",import.meta.url),"utf8");
+const slice=(start,end)=>{
+  const a=js.indexOf(start),b=js.indexOf(end,a+start.length);
+  assert.ok(a>=0 && b>a,"Expected function boundaries: "+start);
+  return js.slice(a,b);
+};
+const surface=slice("async function surfaceTokenLoot","async function createLootMessage");
+assert.match(surface,/game\.users\.filter\(u=>u\.isGM\)/,"Whispered player card also delivered to GM");
+const request=slice("async function requestClaim","function isPlayerCharacterActor");
+assert.match(request,/game\.socket\.emit\(SOCKET, payload\)/,"Player triggers remote automatic claim");
+assert.doesNotMatch(request,/DialogV2\.confirm|approve|acceptClaim/,"Player claim has no MJ confirmation");
+const handler=slice("async function processClaimSerialized","function claimRecord");
+assert.match(handler,/!message && !data\.tokenUuid/,"Existing private carcass cards can use Token flag without GM chat copy");
+assert.match(handler,/getTokenLoot\(tokenDoc, \{migrate:true\}\)/,"Canonical token loot is read by GM");
+assert.match(handler,/actorOwnedByUser\(actor, user\)/,"Ownership is still checked");
+assert.match(handler,/await transferEntryToActor\(actor, entry, qty, tokenDoc\)/,"Claim transfers to player actor");
+assert.match(handler,/await persistLoot\(message, loot, tokenDoc\)/,"Claim persists remaining quantities");
+assert.doesNotMatch(handler,/DialogV2\.confirm|DialogV2\.input/,"No GM approval dialog");
+assert.match(js,/const pendingClaimQueues = new Map\(\)/,"Claim queue is global to all requests");
+assert.match(js,/await previous;/,"Claims of same carcass are serialized");
+console.log("OK: private player loot, silent GM transfer, canonical stock and concurrency safeguards");
