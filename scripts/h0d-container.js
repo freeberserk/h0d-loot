@@ -38,8 +38,9 @@ function stockCard(tokenDoc) {
       const def = builder?.getDefinition?.(offer.reference) || catalogue?.getDefinition?.(offer.reference) || null;
       const kind = String(def?.kind || "").toLowerCase();
       const category = {weapon:"Armes",armor:"Armures",object:"Objets",resource:"Ressources",ammo:"Munitions",ammunition:"Munitions"}[kind] || "Autres";
+      const numericQuantity = Number(offer.quantity);
       return {index,reference:String(offer.reference || ""),name:String(offer.name || "Article"),
-        quantity:Number.isSafeInteger(offer.quantity) && offer.quantity >= 0 ? offer.quantity : 1,
+        quantity:Number.isSafeInteger(numericQuantity) && numericQuantity >= 0 ? numericQuantity : 1,
         price:offer.price === null || offer.price === undefined ? null : Number(offer.price),
         currency:String(offer.currency || "jetons"),category,
         img:String(def?.img || "icons/svg/item-bag.svg")};
@@ -133,6 +134,12 @@ async function transferOffer(actor,offer,quantity) {
   const source = helpers.prepareLootedItemSource(original.toObject());
   source.flags ||= {};
   source.flags[NS] = {...(source.flags[NS] || {}),looted:true,containerReference:offer.reference};
+  // Chaque Item cloné conserve une identité CSB indépendante de son prototype.
+  const freshSource = () => {
+    const copy=clone(source);
+    if (copy.system && Object.hasOwn(copy.system,"uniqueId")) copy.system.uniqueId=foundry.utils.randomID();
+    return copy;
+  };
   const props = source.system?.props || {};
   const quantityField = Object.hasOwn(props,"H0D_Ressource_Quantite") ? "H0D_Ressource_Quantite" :
     Object.hasOwn(props,"H0D_Objet_Quantite") ? "H0D_Objet_Quantite" : null;
@@ -146,10 +153,10 @@ async function transferOffer(actor,offer,quantity) {
       return;
     }
     source.system.props[quantityField] = String(quantity);
-    await actor.createEmbeddedDocuments("Item",[source]);
+    await actor.createEmbeddedDocuments("Item",[freshSource()]);
     return;
   }
-  await actor.createEmbeddedDocuments("Item",Array.from({length:quantity},()=>clone(source)));
+  await actor.createEmbeddedDocuments("Item",Array.from({length:quantity},freshSource));
 }
 
 async function updateCards(tokenDoc) {
@@ -210,12 +217,16 @@ async function claimSerialized(data) {
     if (!ops.length) return respond(false,"H0D : aucun objet restant.");
     // Pour le mode marchand, un retrait représente une livraison ; la monnaie n'est pas débitée.
     // Ne décrémenter que les objets réellement transférés, jamais sur échec de génération.
-    for (const op of ops) {
-      await transferOffer(actor,op.offer,op.qty);
-      state.offers[op.index].quantity -= op.qty;
-      await merchantAPI.setMerchantOffers(source,state.offers);
+    try {
+      for (const op of ops) {
+        await transferOffer(actor,op.offer,op.qty);
+        state.offers[op.index].quantity -= op.qty;
+        await merchantAPI.setMerchantOffers(source,state.offers);
+      }
+    } finally {
+      // Même si une ligne d'un retrait global échoue, republier les lignes déjà prélevées.
+      await updateCards(tokenDoc);
     }
-    await updateCards(tokenDoc);
     respond(true,"H0D : "+ops.reduce((sum,op)=>sum+op.qty,0)+" objet(s) transféré(s) vers "+actor.name+
       (mode==="Marchand"?". Paiement à régler manuellement.":"."));
   } catch (error) {
