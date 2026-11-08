@@ -26,8 +26,11 @@ function normalizeOffer(o){
  if(!Number.isSafeInteger(quantity)||quantity<0)throw new Error("Quantité invalide.");
  const perPurchase=o.perPurchase===undefined||o.perPurchase===null?1:Number(o.perPurchase);
  if(!Number.isSafeInteger(perPurchase)||perPurchase<1)throw new Error("Conditionnement invalide.");
+ // Prix manquant ≠ prix nul : ne pas transformer une fourchette inconnue en gratuité.
+ const price=o.price===null||o.price===undefined||String(o.price).trim()===""?null:Number(o.price);
+ if(price!==null&&(!Number.isFinite(price)||price<0))throw new Error("Prix invalide.");
  return {reference:String(o.reference||""),name:String(o.name||o.reference||"Article"),quantity,perPurchase,
- price:Number.isFinite(Number(o.price))&&Number(o.price)>=0?Number(o.price):null,currency:String(o.currency||"jetons"),
+ price,currency:String(o.currency||"jetons"),
  notes:String(o.notes||"")};
 }
 export async function setMerchantRole(actorValue,enabled){
