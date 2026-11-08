@@ -159,6 +159,45 @@ export async function openTileStorefront(tileValue) {
     buttons:[{action:"close",label:"Fermer",default:true}]
   });
 }
+// Les joueurs n'ont pas accès au calque Tuiles. Ce sélecteur alternatif
+// s'appuie exclusivement sur les instantanés publics des tuiles de la scène.
+function visibleMerchantTiles() {
+  if (!canvas?.ready || !canvas.scene) return [];
+  const placeables=new Map((canvas.tiles?.placeables || []).map(obj=>[obj.document?.id,obj]));
+  return [...(canvas.scene.tiles?.contents || [])].filter(tile=>{
+    if (tile.hidden) return false;
+    const snap=getTileStorefront(tile);
+    if (!snap?.enabled) return false;
+    const obj=placeables.get(tile.id);
+    return obj && obj.isVisible !== false && obj.visible !== false;
+  }).sort((a,b)=>{
+    const sa=getTileStorefront(a),sb=getTileStorefront(b);
+    return String(sa?.name||"").localeCompare(String(sb?.name||""),"fr");
+  });
+}
+export async function openAvailableMerchantStorefronts() {
+  const available=visibleMerchantTiles();
+  if (!available.length) {
+    ui.notifications?.info?.("Aucun étal marchand accessible sur cette scène.");
+    return null;
+  }
+  if (available.length===1) return openTileStorefront(available[0]);
+  const options=available.map(tile=>{
+    const info=getTileStorefront(tile);
+    return '<option value="'+esc(tile.id)+'">'+esc(info.name)+' — '+esc(tile.name||"Étal")+'</option>';
+  }).join("");
+  const choice=await foundry.applications.api.DialogV2.input({
+    window:{title:"H0D — Marchands de la scène"},
+    content:'<p>Sélectionne le marchand dont tu souhaites consulter les offres.</p>'+
+      '<div class="form-group"><label>Étal</label><select name="tileId">'+options+'</select></div>',
+    ok:{label:"Consulter",icon:"fa-solid fa-store"}
+  });
+  if (!choice?.tileId) return null;
+  // Vérification à nouveau au moment de l'ouverture : une tuile peut être masquée entretemps.
+  const tile=visibleMerchantTiles().find(t=>t.id===choice.tileId);
+  if (!tile) throw new Error("Cette vitrine n'est plus accessible.");
+  return openTileStorefront(tile);
+}
 export async function linkSelectedMerchantTile() {
   requireGM();
   const selected = canvas?.tiles?.controlled || [];
@@ -261,6 +300,16 @@ export function registerMerchantTileHooks() {
     if (delta && merchantFlagChanged(delta)) queueTileSync(token.actor);
   });
   Hooks.on("getSceneControlButtons",controls => {
+    // Toujours exposer la consultation, y compris aux comptes Joueur sans aucun droit sur les tuiles.
+    const tokenTools=controls?.tokens?.tools;
+    if(tokenTools) tokenTools.h0dMerchantVisit={
+      name:"h0dMerchantVisit",
+      title:"H0D Commerce — consulter les marchands de la scène",
+      icon:"fa-solid fa-store",
+      order:Object.keys(tokenTools).length+1,
+      button:true,visible:true,
+      onChange:()=>openAvailableMerchantStorefronts().catch(err=>ui.notifications?.error?.(err.message))
+    };
     if(!game.user?.isGM) return;
     const tools=controls?.tiles?.tools;
     if(!tools) return;
@@ -276,5 +325,5 @@ export function registerMerchantTileHooks() {
 }
 export const merchantTileAPI = {
   linkTileToMerchant,unlinkMerchantTile,getTileStorefront,
-  syncMerchantTiles,openTileStorefront,linkSelectedMerchantTile
+  syncMerchantTiles,openTileStorefront,openAvailableMerchantStorefronts,linkSelectedMerchantTile
 };
