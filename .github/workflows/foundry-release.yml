@@ -16,7 +16,9 @@ jobs:
         run: |
           node tests/harvest-profile.mjs
       - name: Verify merchant tile integration
-        run: node tests/merchant-tile.mjs
+        run: |
+          node tests/merchant-tile.mjs
+          node tests/merchant-token-actors.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-loot.js
