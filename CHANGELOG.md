@@ -4,6 +4,7 @@
 - Transfert automatisé vers le PJ possédé/contrôlé via le MJ actif, avec contrôle des droits, stock réel relu sur l'Actor, sérialisation des retraits concurrents et mise à jour des cartes.
 - Pour le mode **Stock marchand**, le prélèvement **ne débite pas la monnaie** : confirmation informative côté joueur et paiement à régler avec le MJ. Ce n'est pas encore un système d'achat sécurisé.
 - Les offres sans quantité (null, valeur absente ou champ vide) sont affichées avec une **quantité par défaut de 1**. Les valeurs déjà renseignées, notamment 0, sont conservées. La valeur 1 devient persistante à la sauvegarde ou au premier prélèvement.
+- Conserve également la **quantité par achat** du stock canonique : chez Senn, **1 offre de Flèches renforcées ×5 = 5 flèches** dans l’inventaire, et non 1 ou 10. Compatible avec les stocks historiques portant leur clé de catalogue.
 - Les nouvelles importations du stock Senn appliquent également cette règle ; aucune migration globale ni modification des inventaires existants à l'activation.
 - Les objets transférés proviennent d'une **référence exacte** H0D Equipment Builder / Catalogue. Les références non générables sont refusées sans diminution du stock ; aucune substitution approximative.
 - L'accès public par **tuiles** est désactivé. Les anciens flags de tuiles restent inchangés pour permettre un retour arrière.
