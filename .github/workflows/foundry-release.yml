@@ -20,6 +20,7 @@ jobs:
           node tests/merchant-tile.mjs
           node tests/merchant-token-actors.mjs
           node tests/merchant-player-tool.mjs
+          node tests/player-autonomous-loot.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-loot.js
