@@ -78,12 +78,6 @@ function readOffers(form,original,builderDefinitions=[]){
   if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
   result.push({reference:def.key,name:def.name,quantity,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Source : H0D Equipment Builder"});
  }
- if(String(form.newName||"").trim()){
-  const quantity=readNumber(form.newQuantity,"Quantité");
-  if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
-  result.push({reference:String(form.newReference||"").trim(),name:String(form.newName).trim(),
-   quantity,price:readNumber(form.newPrice,"Prix"),currency:form.newCurrency||"jetons",notes:""});
- }
  return result;
 }
 export async function openMerchant(actorValue){
@@ -117,15 +111,11 @@ export async function openMerchant(actorValue){
    ${builderDefinitions.length?`<select name="builderReference" aria-label="Article Equipment Builder"><option value="">— Choisir un article —</option>${builderOptions}</select>
    <div style="display:flex;gap:6px;margin-top:5px"><input name="builderQuantity" placeholder="Quantité ?" aria-label="Quantité Builder"><input name="builderPrice" placeholder="Prix ?" aria-label="Prix Builder"><input name="builderCurrency" value="jetons" aria-label="Monnaie Builder"></div>`:"<p>Equipment Builder indisponible ou catalogue vide. Activer le module pour sélectionner des références.</p>"}
    </fieldset>
-   <fieldset><legend>Ajouter une marchandise libre</legend>
-   <input name="newName" placeholder="Nom de l'article" aria-label="Nouvel article">
-   <input name="newReference" placeholder="Clé catalogue (facultative)" aria-label="Référence catalogue">
-   <div style="display:flex;gap:6px"><input name="newQuantity" placeholder="Quantité ?" aria-label="Quantité">
-   <input name="newPrice" placeholder="Prix ?" aria-label="Prix"><input name="newCurrency" value="jetons" aria-label="Monnaie"></div>
-   </fieldset></div>
+   </div>
    <div class="form-group"><label>Action</label><select name="operation">
    <option value="save">Enregistrer les modifications</option>
    <option value="import">Remplacer par le stock Senn</option>
+   <option value="publish">Enregistrer et publier la vitrine aux joueurs</option>
    </select></div>`,
   ok:{label:"Enregistrer",icon:"fa-solid fa-check"}
  });
@@ -142,9 +132,24 @@ export async function openMerchant(actorValue){
  }
  await assignMerchantBuyer(actor,choice.buyer||null);
  await setMerchantRole(actor,choice.operation==="import"?true:choice.enabled===true||choice.enabled==="on");
+ if(choice.operation==="publish")await publishMerchant(actor);
  actor.sheet?.render?.(true);
  ui.notifications.info("H0D : stock marchand enregistré pour "+actor.name);
  return getMerchant(actor);
+}
+// La vitrine est une copie publique du stock au moment de sa publication.
+// Aucun accès aux données de l'Actor marchand n'est accordé aux joueurs.
+export async function publishMerchant(actorValue){
+ ensureGM();
+ const actor=actorOf(actorValue),state=merchantState(actor);
+ if(!state.enabled)throw new Error("Active le rôle Marchand avant de publier.");
+ const rows=state.offers.map(o=>`<tr><td>${esc(o.name)}</td><td>${o.quantity===null?"Non précisée":esc(o.quantity)}</td><td>${o.price===null?"À définir":esc(o.price+" "+o.currency)}</td></tr>`).join("");
+ const content=`<section class="h0d-merchant-public"><h2>Étal de ${esc(actor.name)}</h2>
+ <p>Offres consultables — achats à valider avec le MJ.</p>
+ <table><thead><tr><th>Marchandise</th><th>Quantité</th><th>Prix</th></tr></thead>
+ <tbody>${rows||'<tr><td colspan="3">Aucune marchandise disponible</td></tr>'}</tbody></table>
+ <p><small>Vitrine publiée à cet instant ; les modifications ultérieures du stock ne la mettent pas à jour automatiquement.</small></p></section>`;
+ return ChatMessage.create({content,speaker:{alias:actor.name},flags:{[NS]:{merchantPublic:true}}});
 }
 // Intégration non destructive à la fenêtre Actor CSB, sans toucher au template.
 export function installMerchantSheetButton(app,html){
@@ -162,4 +167,4 @@ export function installMerchantSheetButton(app,html){
  button.addEventListener("click",()=>openMerchant(actor).catch(e=>ui.notifications.error(e.message)));
  header.insertBefore(button,header.querySelector(".window-close")||null);
 }
-export const merchantAPI={getMerchant,setMerchantRole,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant};
+export const merchantAPI={getMerchant,setMerchantRole,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant};
