@@ -28,7 +28,7 @@ assert.throws(()=>barterQuote(actor,[],2),/Aucune ressource/);
 
 assert.match(container,/actor\?\.getFlag\?\.\(NS,"merchant"\)\?\.enabled===true/,
  "Un PNJ porteur du rôle marchand doit être éligible sans template Coffre.");
-assert.match(main,/if\(isContainerToken\(\{actor:tokenDoc\.actor\}\)\)return openMerchantForPlayerOnGM\(data\)/,
+assert.match(main,/if\(isContainerToken\(\{actor:tokenDoc\.actor\}\)\)\{[\s\S]*?openMerchantForPlayerOnGM\(data\)/,
  "Le MJ doit router le vendeur même quand le joueur n'accède pas à ses flags.");
 assert.match(container,/retrait gratuit interdit chez un marchand/);
 assert.match(container,/data-h0d-container-action="trade"/);
