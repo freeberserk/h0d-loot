@@ -3,6 +3,43 @@
  * Les champs "Valeur / troc" et "Valeur unitaire" sont lus, jamais modifiés.
  * Ne pas extrapoler de valeur pour les armes, armures ou articles sans cotation.
  */
+export const RECOGNITION_TOKEN_KEY="jeton-reconnaissance";
+const RECOGNITION_TOKEN_NAME="jeton de reconnaissance";
+const TOKEN_TEMPLATE_ID="H0DResTpl0000001";
+const cleanName=value=>String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+
+/** Une référence stable du Catalogue prime ; le type+nom couvre les anciennes fiches sans flags. */
+export function isRecognitionToken(item){
+  if(item?.system?.template!==TOKEN_TEMPLATE_ID)return false;
+  const props=item.system?.props||{};
+  const byBuilder=item.getFlag?.("h0d-equipment-builder","catalogKey")||
+    item.flags?.["h0d-equipment-builder"]?.catalogKey;
+  const byLoot=item.getFlag?.("h0d-loot","catalogueKey")||
+    item.flags?.["h0d-loot"]?.catalogueKey||
+    item.getFlag?.("h0d-loot","containerReference");
+  if(byBuilder===RECOGNITION_TOKEN_KEY||byLoot===RECOGNITION_TOKEN_KEY)return true;
+  return props.H0D_Ressource_Type==="Jeton"&&cleanName(item.name)===RECOGNITION_TOKEN_NAME;
+}
+
+/** Calcule un débit prioritaire, sans écrire sur les Items et sans conversion en matériaux. */
+export function recognitionTokenPayment(actor,price){
+  if(!Number.isSafeInteger(price)||price<0)throw new Error("Prix en jetons invalide.");
+  let remaining=price;
+  const lines=[];
+  for(const item of Array.from(actor?.items||[])){
+    if(!isRecognitionToken(item)||remaining===0)continue;
+    const quantity=positiveInteger(item.system?.props?.H0D_Ressource_Quantite);
+    if(quantity===null)throw new Error("Quantité de Jetons de Reconnaissance invalide.");
+    const take=Math.min(quantity,remaining);
+    if(take>0){
+      lines.push({item,quantity:take,quantityField:"H0D_Ressource_Quantite",
+        previous:item.system.props.H0D_Ressource_Quantite});
+      remaining-=take;
+    }
+  }
+  return {used:price-remaining,remaining,lines};
+}
+
 export const VALUED_ITEM_TEMPLATES=Object.freeze({
   "H0DObjTpl0000001":{value:"H0D_Objet_Valeur",quantity:"H0D_Objet_Quantite"},
   "H0DResTpl0000001":{value:"H0D_Ressource_Valeur_Unitaire",quantity:"H0D_Ressource_Quantite"}
@@ -13,6 +50,7 @@ const positiveInteger=value=>{
   return Number.isSafeInteger(number)&&number>=0?number:null;
 };
 export function barterItemDetails(item){
+  if(isRecognitionToken(item))return null;
   const key=item?.system?.template;
   const cfg=VALUED_ITEM_TEMPLATES[key];
   if(!cfg)return null;

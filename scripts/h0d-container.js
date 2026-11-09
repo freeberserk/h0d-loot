@@ -1,5 +1,5 @@
 import {merchantAPI} from "./h0d-merchant.js";
-import {barterQuote} from "./h0d-trade.js";
+import {barterQuote,recognitionTokenPayment} from "./h0d-trade.js";
 import {openValueTradeDialog} from "./h0d-trade-dialog.js";
 
 // H0D Loot — stock des conteneurs, directement sur les tokens (sans tuile).
@@ -7,6 +7,9 @@ import {openValueTradeDialog} from "./h0d-trade-dialog.js";
 const NS = "h0d-loot";
 const SOCKET = "module.h0d-loot";
 const CARD_FLAG = "containerStock";
+// Les anciens stocks cotés en jetons gardent leur prix. Un nouveau marchand peut aussi coter en ressources.
+const acceptsTradePrice=(mode,currency)=>mode==="tokens-first"?currency==="jetons":
+  mode==="resources-only"&&["jetons","ressources"].includes(currency);
 const TEMPLATE_ID = "H0DContActor0001";
 const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
 const clone = value => foundry.utils.deepClone(value);
@@ -40,6 +43,7 @@ function stockCard(tokenDoc) {
     name:String(actor.name),
     mode,
     valueBarterEnabled:mode==="Marchand"&&state.valueBarterEnabled===true,
+    paymentMode:mode==="Marchand"?state.paymentMode:null,
     offers:(state.offers || []).map((offer,index) => {
       const def = builder?.getDefinition?.(offer.reference) || catalogue?.getDefinition?.(offer.reference) || null;
       const kind = String(def?.kind || "").toLowerCase();
@@ -65,10 +69,10 @@ function renderStockCard(card) {
     const rows = offers.map(o => {
       const q = Math.max(0,o.quantity);
       const valueBarterAllowed=card.mode==="Marchand"&&card.valueBarterEnabled===true&&
-        o.currency==="jetons"&&Number.isSafeInteger(o.price)&&o.price>=0;
+        acceptsTradePrice(card.paymentMode,o.currency)&&Number.isSafeInteger(o.price)&&o.price>=0;
       const actions=card.mode==="Marchand"
         ? !q?'<span class="h0d-loot-empty">épuisé</span>'
-          : valueBarterAllowed&&claimable?'<span class="h0d-loot-actions"><button type="button" data-h0d-container-action="trade" data-index="'+o.index+'" title="Échanger 1 lot contre des ressources évaluées"><i class="fa-solid fa-right-left"></i> Troquer</button></span>'
+          : valueBarterAllowed&&claimable?'<span class="h0d-loot-actions"><button type="button" data-h0d-container-action="trade" data-index="'+o.index+'" title="Acheter selon le mode de paiement du marchand"><i class="fa-solid fa-right-left"></i> Troquer</button></span>'
           : '<span class="h0d-loot-empty">Troc indisponible</span>'
         : q&&claimable?'<span class="h0d-loot-actions">'+
           '<button type="button" data-h0d-container-action="take-one" data-index="'+o.index+'" title="Prendre 1"><i class="fa-solid fa-hand"></i> 1</button>'+
@@ -83,9 +87,11 @@ function renderStockCard(card) {
   }).join('');
   const count = card.offers.reduce((sum,offer) => sum+Math.max(0,offer.quantity),0);
   const warning = card.mode === 'Marchand'
-    ? '<div class="h0d-loot-warning">'+(card.valueBarterEnabled
-        ? 'Troc automatique activé : le prix en jetons est payé avec des objets ou ressources dont la valeur de troc est renseignée. Aucun rendu de monnaie.'
-        : 'Le vendeur n’accepte pas encore le troc automatique. Le MJ peut l’activer sur sa fiche.')+'</div>'
+    ? '<div class="h0d-loot-warning">'+(card.paymentMode==="tokens-first"
+        ? 'Paiement : Jetons de Reconnaissance prioritaires, puis complément en ressources selon leur valeur de troc. Aucun rendu de monnaie.'
+        :card.valueBarterEnabled
+          ? 'Paiement : ressources et objets valorisés uniquement. Aucun Jeton de Reconnaissance prélevé.'
+          : 'Le mode de paiement de ce marchand doit être configuré par le MJ.')+'</div>'
     : '';
   const allButton = card.mode !== 'Marchand' && claimable && count
     ? '<button type="button" class="h0d-loot-take-all" data-h0d-container-action="take-all-card"><i class="fa-solid fa-sack-dollar"></i> Tout récupérer</button>' : '';
@@ -140,22 +146,22 @@ async function requestContainerTrade(card,offerIndex) {
   const offer=card.offers.find(o=>o.index===offerIndex);
   if(!offer||card.mode!=="Marchand"||card.valueBarterEnabled!==true)
     return ui.notifications?.warn("H0D : ce vendeur n'autorise pas le troc automatique.");
-  if(offer.currency!=="jetons"||!Number.isSafeInteger(offer.price)||offer.price<0)
-    return ui.notifications?.warn("H0D : prix non compatible avec le troc automatique.");
+  if(!acceptsTradePrice(card.paymentMode,offer.currency)||!Number.isSafeInteger(offer.price)||offer.price<0)
+    return ui.notifications?.warn("H0D : prix non compatible avec le mode de paiement.");
   const recipient=await helpers.chooseRecipientActor();
   if(!recipient?.actor)return;
   // Le dialogue ne débite rien. Il présente les valeurs en temps réel,
   // compose éventuellement une offre optimale et recueille l'accord sur un surplus.
   const result=await openValueTradeDialog({
-    actor:recipient.actor,vendorName:card.name,offer
+    actor:recipient.actor,vendorName:card.name,offer,paymentMode:card.paymentMode
   });
   if(!result)return;
-  const {barterItems,ackOverpay,quotedPrice}=result;
+  const {barterItems,ackOverpay,quotedPrice,tokensUsed}=result;
   const data={type:"container-trade",userId:game.user.id,tokenUuid:card.tokenUuid,
     actorId:recipient.actor.id,actorUuid:recipient.actor.uuid||null,
     recipientTokenUuid:recipient.tokenUuid||null,offerIndex,
     reference:offer.reference,offerName:offer.name,
-    barterItems,ackOverpay,quotedPrice};
+    barterItems,ackOverpay,quotedPrice,tokensUsed};
   if(helpers.isPrimaryGM())return processClaim(data);
   if(!helpers.primaryGM())return ui.notifications?.warn("H0D : un MJ connecté est nécessaire pour exécuter le troc.");
   game.socket.emit(SOCKET,data);
@@ -305,8 +311,9 @@ async function tradeSerialized(data) {
     if(!tokenDoc||(!user.isGM&&(tokenDoc.hidden||(user.viewedScene&&tokenDoc.parent?.id!==user.viewedScene))))
       return respond(false,"H0D : vendeur inaccessible sur cette scène.");
     const {actor:vendor,mode,state}=readContainer(tokenDoc);
-    if(mode!=="Marchand"||!state.enabled||state.valueBarterEnabled!==true)
-      return respond(false,"H0D : ce vendeur n'accepte pas le troc automatique.");
+    const paymentMode=state.paymentMode||(state.valueBarterEnabled===true?"resources-only":null);
+    if(mode!=="Marchand"||!state.enabled||!["tokens-first","resources-only"].includes(paymentMode))
+      return respond(false,"H0D : aucun mode de paiement automatique actif.");
     const index=data.offerIndex;
     if(!Number.isSafeInteger(index)||index<0||index>=state.offers.length)
       return respond(false,"H0D : cette offre n'existe plus.");
@@ -317,22 +324,28 @@ async function tradeSerialized(data) {
       return respond(false,"H0D : offre modifiée. Rouvre le vendeur.");
     if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)
       return respond(false,"H0D : article épuisé.");
-    if(offer.currency!=="jetons"||!Number.isSafeInteger(offer.price)||offer.price<0)
-      return respond(false,"H0D : prix non défini ou hors mode troc.");
+    if(!acceptsTradePrice(paymentMode,offer.currency)||!Number.isSafeInteger(offer.price)||offer.price<0)
+      return respond(false,"H0D : prix non défini ou incompatible avec le mode de paiement.");
     const actor=await helpers.resolveRecipientActor(data,user);
     if(!actor||(!user.isGM&&!helpers.actorOwnedByUser(actor,user)))
       return respond(false,"H0D : ce PJ ne vous appartient pas.");
     if(actor.uuid===vendor.uuid||actor.id===vendor.id)
       return respond(false,"H0D : le vendeur ne peut pas être son propre acheteur.");
-    const quote=barterQuote(actor,data.barterItems||[],offer.price);
+    const tokens=paymentMode==="tokens-first"?recognitionTokenPayment(actor,offer.price):
+      {used:0,remaining:offer.price,lines:[]};
+    if(paymentMode==="tokens-first"&&data.tokensUsed!==tokens.used)
+      return respond(false,"H0D : solde de jetons modifié. Rouvre le stock du marchand.");
+    if(paymentMode==="resources-only"&&(data.tokensUsed??0)!==0)
+      return respond(false,"H0D : ce vendeur n'accepte pas les Jetons de Reconnaissance.");
+    const quote=barterQuote(actor,data.barterItems||[],tokens.remaining);
     if(quote.overpay>0&&data.ackOverpay!==true)
       return respond(false,"H0D : confirme l'excédent avant de troquer.");
     const paid=[];
     let delivery=null;
     try {
-      for(const line of quote.lines) {
+      for(const line of [...tokens.lines,...quote.lines]) {
         const item=line.item;
-        const key=line.details.quantityField;
+        const key=line.quantityField||line.details.quantityField;
         const previous=item.system.props[key];
         const current=Number(previous);
         await item.update({["system.props."+key]:String(current-line.quantity)});
@@ -362,17 +375,22 @@ async function tradeSerialized(data) {
       receiptState.barterReceipts=[...history,{
         at:Date.now(),buyerId:actor.id,buyerName:actor.name,playerId:user.id,
         reference:offer.reference,offerName:offer.name,
-        price:offer.price,paidValue:quote.total,
-        paid:quote.lines.map(line=>({name:line.details.name,quantity:line.quantity,unitValue:line.details.value}))
+        price:offer.price,paidValue:tokens.used+quote.total,tokensUsed:tokens.used,
+        paid:[...tokens.lines.map(line=>({name:line.item.name,quantity:line.quantity,unitValue:1})),
+          ...quote.lines.map(line=>({name:line.details.name,quantity:line.quantity,unitValue:line.details.value}))]
       }].slice(-100);
       await vendor.setFlag(NS,"merchant",receiptState);
     }catch(err){console.warn("H0D | troc terminé, mais journal du marchand non enregistré",err);}
     // Après confirmation, supprimer les piles de valeur totalement consommées.
-    const emptied=quote.lines.filter(line=>line.quantity===line.details.quantity).map(line=>line.item.id);
+    const emptied=[
+      ...tokens.lines.filter(line=>line.quantity===Number(line.previous)).map(line=>line.item.id),
+      ...quote.lines.filter(line=>line.quantity===line.details.quantity).map(line=>line.item.id)
+    ];
     if(emptied.length)try{await actor.deleteEmbeddedDocuments("Item",emptied);}
     catch(err){console.warn("H0D | piles de troc vides conservées",err);}
-    respond(true,"H0D : "+offer.name+" obtenu par troc sur "+vendor.name+
-      " ("+quote.total+" valeur remise pour "+offer.price+" jetons)."+(quote.overpay?" Sans rendu de "+quote.overpay+".":""));
+    respond(true,"H0D : "+offer.name+" obtenu auprès de "+vendor.name+
+      " ("+tokens.used+" jeton(s) et "+quote.total+" de valeur en ressources pour un prix de "+
+      offer.price+")."+(quote.overpay?" Sans rendu de "+quote.overpay+".":""));
   } catch(error) {
     console.error("H0D | transaction commerciale impossible",error);
     respond(false,"H0D : troc impossible ("+String(error?.message||error)+")."+rollbackWarning);

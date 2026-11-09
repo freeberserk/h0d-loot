@@ -56,7 +56,7 @@ assert.match(container,/await transferOffer\(actor,op\.offer,op\.qty\)/);
 assert.match(container,/state\.offers\[op\.index\]\.quantity -= op\.qty/);
 assert.match(container,/await merchantAPI\.setMerchantOffers\(source,state\.offers\)/);
 assert.match(container,/card\.mode !== 'Marchand'/);
-assert.match(container,/Troc automatique activé/);
+assert.match(container,/Jetons de Reconnaissance prioritaires/);
 assert.match(container,/retrait gratuit interdit chez un marchand/);
 assert.match(container,/data-h0d-container-action="trade"/);
 assert.match(container,/const units=quantity\*perPurchase/);

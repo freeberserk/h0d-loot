@@ -1,3 +1,15 @@
+## v0.6.21 — Deux modes de paiement marchand
+
+La fiche **H0D — Stock marchand** propose deux choix : **Jetons prioritaires + ressources complémentaires**, ou **Ressources uniquement**.
+
+- En mode jetons prioritaires, le PJ utilise d'abord les vrais Items « Jeton de Reconnaissance » de son inventaire, puis paie le solde via la valeur des ressources ou objets proposés. Pas de conversion automatique de ressources en jetons.
+- Le mode ressources uniquement conserve le troc par valeur : aucun Jeton de Reconnaissance n'y est utilisé, même si sa valeur a été renseignée par erreur.
+- Le prix et le solde sont revérifiés côté MJ avant tout débit. Le paiement mixte et la livraison sont compensés en cas d'échec. Un changement de quantité de jetons pendant la fenêtre demande de rouvrir le stock.
+- Les anciens marchands qui avaient activé le troc restent **ressources uniquement**. Ceux qui l'avaient désactivé ne sont pas activés silencieusement. Importer volontairement le stock de Senn configure les jetons prioritaires.
+- Les anciennes offres chiffrées en jetons sont conservées ; le mode ressources uniquement accepte aussi des prix explicitement libellés en `ressources`.
+- Requiert H0D Catalogue 0.1.11 et le template Ressource v2.6 pour générer et identifier les nouveaux jetons. Aucun stock ni inventaire de campagne n'est réécrit à l'installation.
+- Les tests de logique ne remplacent pas une validation MJ + joueur dans Foundry v14 BAC-à-SABLES : tester la présentation des dialogues, l'achat mixte, le paiement complet, l'échec de livraison et le stock existant de Senn.
+
 ## v0.6.20 — Troc interactif en temps réel
 
 Dans le stock d'un **vendeur dont le troc automatique par valeur est activé**, le PJ clique sur **Troquer** pour ouvrir une fenêtre indiquant clairement le **prix de l'article**, la **quantité de chaque ressource possédée**, sa **valeur unitaire en jetons** et le **sous-total offert**. Le total, la progression, le montant restant et le surplus se recalculent à chaque clic sur **+ / −** ou saisie numérique.
