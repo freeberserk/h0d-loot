@@ -177,3 +177,94 @@
   .h0d-trade-root .h0d-trade-quantity input { max-width:43px; }
   .h0d-trade-root .h0d-trade-quantity button { width:24px; min-width:24px; }
 }
+
+
+/* H0D Commerce — éditeur MJ à deux onglets. Aucun style global Foundry. */
+.h0d-merchant-window .window-content {overflow:hidden; display:flex; flex-direction:column; min-height:0;}
+.h0d-merchant-window .window-content > form {display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden;}
+.h0d-merchant-window .window-content .form-footer,
+.h0d-merchant-window .window-content .dialog-buttons {flex:0 0 auto; margin-top:0; padding-top:9px;}
+.h0d-merchant-editor {display:flex; flex-direction:column; gap:0; min-height:0; flex:1; width:100%;
+  color:var(--color-text-primary,inherit);}
+.h0d-merchant-editor [hidden],.h0d-merchant-window [hidden] {display:none!important;}
+.h0d-merchant-heading {display:flex; align-items:center; justify-content:space-between; gap:10px;
+  flex:0 0 auto; padding:12px 14px; border-bottom:1px solid rgba(181,188,184,.24);
+  background:rgba(12,24,26,.18);}
+.h0d-merchant-heading h2 {margin:0 0 3px; font-size:1.15rem; border:0;}
+.h0d-merchant-heading small {opacity:.75;}
+.h0d-merchant-activity {white-space:nowrap; color:#64c6aa; font-weight:700; font-size:.85rem;}
+.h0d-merchant-tabs {display:flex; flex:0 0 auto; gap:5px; padding:8px 10px;
+  border-bottom:1px solid rgba(181,188,184,.2);}
+.h0d-merchant-tabs button,.h0d-merchant-add-tabs button {flex:1; margin:0; padding:8px 12px; min-width:0;
+  border:1px solid transparent; border-radius:6px; background:transparent;}
+.h0d-merchant-tabs button.active,.h0d-merchant-add-tabs button.active {
+  background:rgba(41,128,124,.22); border-color:rgba(89,188,179,.52); font-weight:700;}
+.h0d-merchant-tabs button:hover,.h0d-merchant-add-tabs button:hover {border-color:rgba(143,166,166,.5);}
+.h0d-merchant-panel {min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 14px 16px; flex:1;}
+.h0d-merchant-toolbar {display:flex; gap:10px; justify-content:space-between; align-items:center; margin:0 0 10px;}
+.h0d-merchant-stock-heading h3 {font-size:1.05rem; margin:0;}
+.h0d-merchant-stock-heading small {display:block; font-size:.77rem; opacity:.7; margin-top:3px;}
+.h0d-merchant-toolbar>button,.h0d-merchant-add-panel>button {width:auto; min-width:0; flex:0 0 auto;
+  padding:7px 12px; border:1px solid rgba(85,165,153,.5); border-radius:6px; background:rgba(38,123,118,.22);}
+.h0d-merchant-filter {display:flex; align-items:center; gap:8px; padding:2px 9px;
+  border-radius:7px; border:1px solid rgba(165,178,178,.34); margin:6px 0 12px;}
+.h0d-merchant-filter input {flex:1; width:100%; border:0!important; box-shadow:none!important; background:transparent!important; margin:0;}
+.h0d-merchant-offer-list {display:flex; flex-direction:column; gap:7px;}
+.h0d-merchant-offer {display:block; border:1px solid rgba(172,184,181,.23);
+  border-radius:8px; background:rgba(15,24,30,.17); padding:10px;}
+.h0d-merchant-offer.is-removed {opacity:.55; border-color:rgba(197,104,104,.5);}
+.h0d-merchant-offer.is-removed [data-h0d-preview-name] {text-decoration:line-through;}
+.h0d-merchant-offer-summary {display:grid; grid-template-columns:minmax(0,1fr) minmax(76px,auto) minmax(90px,auto) auto;
+  gap:11px; align-items:center;}
+.h0d-merchant-offer-copy {min-width:0;}
+.h0d-merchant-offer-copy strong {display:block; overflow-wrap:anywhere; font-size:.96rem;}
+.h0d-merchant-offer-copy small {display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; overflow-wrap:anywhere; opacity:.72; font-size:.76rem;}
+.h0d-merchant-pack {display:inline-block; font-size:.69rem; background:rgba(78,137,170,.2);
+  border:1px solid rgba(102,160,188,.3); border-radius:4px; padding:1px 4px; margin-top:3px;}
+.h0d-merchant-quantity {color:#bad7d1; white-space:nowrap; font-size:.86rem;}
+.h0d-merchant-price {text-align:right; color:#e8c98d; overflow-wrap:anywhere; font-size:.89rem;}
+.h0d-merchant-offer-actions {display:flex; gap:4px;}
+.h0d-merchant-offer-actions button,.h0d-merchant-add-heading button {width:28px; min-width:28px;
+  height:28px; padding:0; border:1px solid rgba(133,155,159,.35); border-radius:5px;}
+.h0d-merchant-offer-edit {border-top:1px solid rgba(144,168,161,.2); margin-top:10px; padding-top:10px;
+  display:flex; flex-direction:column; gap:9px;}
+.h0d-merchant-offer-edit label,.h0d-merchant-add-panel label {display:flex; flex-direction:column; gap:4px; font-size:.8rem; font-weight:600;}
+.h0d-merchant-offer-edit input,.h0d-merchant-offer-edit textarea,.h0d-merchant-add-panel input,
+.h0d-merchant-add-panel select,.h0d-merchant-add-panel textarea {width:100%; min-width:0; margin:0; box-sizing:border-box;}
+.h0d-merchant-offer-fields,.h0d-merchant-add-fields {display:grid; grid-template-columns:1fr 1fr 1.3fr; gap:10px;}
+.h0d-merchant-offer-edit>small {font-size:.74rem; opacity:.72;}
+.h0d-merchant-remove-flag {display:none!important;}
+.h0d-merchant-no-results {text-align:center; padding:25px 0; opacity:.72;}
+.h0d-merchant-add-panel {display:flex; flex-direction:column; gap:9px; padding:12px;
+  border:1px solid rgba(97,181,165,.45); border-radius:8px; margin-bottom:12px;
+  background:rgba(26,83,85,.17);}
+.h0d-merchant-add-heading {display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.h0d-merchant-add-tabs {display:flex; gap:5px;}
+.h0d-merchant-add-panel small {font-size:.78rem; opacity:.8;}
+.h0d-merchant-setting {display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin:0 0 15px; padding:12px; border:1px solid rgba(181,188,184,.24); border-radius:7px;}
+.h0d-merchant-setting strong,.h0d-merchant-setting small {display:block;}
+.h0d-merchant-setting small {font-size:.78rem; opacity:.72; margin-top:3px;}
+.h0d-merchant-payment,.h0d-merchant-import {border:1px solid rgba(181,188,184,.26); padding:12px;
+  border-radius:7px; margin:0 0 16px;}
+.h0d-merchant-payment legend,.h0d-merchant-import legend {font-weight:700; padding:0 5px;}
+.h0d-merchant-payment label {display:flex; align-items:flex-start; gap:8px; margin:8px 0;}
+.h0d-merchant-payment input {flex:0 0 auto; margin-top:3px;}
+.h0d-merchant-payment p,.h0d-merchant-import p,.h0d-merchant-legacy-info p {font-size:.8rem; opacity:.78; margin:8px 0 0;}
+.h0d-merchant-legacy-info {padding:12px; margin-bottom:18px; border-left:3px solid rgba(172,170,132,.5);
+  background:rgba(172,170,132,.08);}
+.h0d-merchant-import button {width:auto; margin-top:10px; padding:6px 10px;}
+.h0d-merchant-editor-footer {flex:0 0 auto; padding:10px 13px;
+  border-top:1px solid rgba(181,188,184,.24); background:rgba(12,25,26,.18);}
+.h0d-merchant-editor-footer label {display:flex; align-items:center; gap:8px;}
+.h0d-merchant-editor-footer small {opacity:.72; font-size:.77rem; display:block; margin-top:4px;}
+@media(max-width:730px) {
+ .h0d-merchant-offer-summary {grid-template-columns:minmax(0,1fr) auto auto;}
+ .h0d-merchant-offer-copy {grid-column:1/-1;}
+ .h0d-merchant-offer-actions {justify-self:end;}
+ .h0d-merchant-heading {align-items:flex-start;}
+ .h0d-merchant-offer-fields,.h0d-merchant-add-fields {grid-template-columns:1fr 1fr;}
+ .h0d-merchant-toolbar {flex-wrap:wrap;}
+ .h0d-merchant-editor {min-width:0;}
+}
