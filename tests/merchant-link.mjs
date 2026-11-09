@@ -102,6 +102,29 @@ await assert.rejects(()=>link.assignContainerMerchant(otherChest,occupied.uuid),
 world.user.isGM=true;
 // Références non éligibles, pas de boucle de liaison ni de coffre marchand.
 await assert.rejects(()=>link.assignContainerMerchant(chest,otherChest.uuid),/absent, inactif/);
+// Simulation de readContainer : un coffre associé doit publier le stock du PNJ,
+// et non le vieux stock local, sans avoir modifié sa quantité.
+const rangeStart=container.indexOf("export function isContainerToken(");
+const rangeEnd=container.indexOf("function stockCard(",rangeStart);
+assert.ok(rangeStart>=0&&rangeEnd>rangeStart);
+const containerCode=container.slice(rangeStart,rangeEnd).replace(/^export /gm,"");
+const readContainer=new Function("resolveMerchantStockOwner","merchantAPI",
+  "NS","TEMPLATE_ID",containerCode+";return readContainer;"
+)(link.resolveMerchantStockOwner,{getMerchant:owner=>copy(owner.getFlag("h0d-loot","merchant"))},
+ "h0d-loot","H0DContActor0001");
+const linkedTestChest=make("Coffre Raska","coffre",[offer("Ancien stock",8)]);
+await link.assignContainerMerchant(linkedTestChest,merchantActor.uuid);
+const view=readContainer({actor:linkedTestChest});
+assert.equal(view.actor,merchantActor);
+assert.equal(view.mode,"Marchand");
+assert.equal(view.linked,true);
+assert.equal(view.state.offers.length,0);
+assert.equal(linkedTestChest.getFlag("h0d-loot","merchant").offers[0].quantity,8);
+const broken=make("Coffre cassé","coffre",[offer("Ne pas donner gratuitement",3)]);
+await broken.setFlag("h0d-loot","linkedMerchantUuid","Actor.DISPARU");
+assert.throws(()=>readContainer({actor:broken}),/introuvable/,
+  "L'ancien stock ne doit jamais redevenir accessible quand le lien est cassé.");
+
 assert.match(container,/const link=resolveMerchantStockOwner\(source\)/);
 assert.match(container,/const actor=link\.owner/);
 assert.match(container,/const mode=link\.linked\?"Marchand"/);
