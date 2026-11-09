@@ -375,6 +375,7 @@ async function playerOpenTargetedLoot() {
   }
 
   const targets = Array.from(game.user?.targets ?? []);
+  // Les tokens ciblés sont visibles au joueur même lorsque leurs flags de butin ne lui sont pas accessibles.
   const controlledWithLoot = (canvas?.tokens?.controlled ?? []).filter(t => t.document.getFlag(MODULE_ID, TOKEN_FLAG) || isContainerToken(t));
   const candidates = targets.length ? targets : controlledWithLoot;
 
@@ -389,9 +390,10 @@ async function playerOpenTargetedLoot() {
       opened++;
       continue;
     }
-    const loot = await getTokenLoot(token.document, {migrate:false});
-    if (!loot) continue;
-    await surfaceTokenLoot(token.document, loot, {privateToUser:true});
+    // Lecture ET publication déléguées automatiquement au MJ actif.
+    // La récupération du butin ne nécessite aucune permission de lecture sur l'Actor de la carcasse.
+    if (!primaryGM()) return ui.notifications?.warn("H0D Loot : un MJ connecté est nécessaire pour ouvrir la carcasse.");
+    game.socket.emit(SOCKET, {type:"carcass-open",userId:game.user.id,tokenUuid:token.document.uuid});
     opened++;
   }
 
@@ -1136,7 +1138,7 @@ async function manualLootDialog() {
 async function getTokenLoot(tokenDoc, {migrate=false} = {}) {
   const state = tokenDoc?.getFlag(MODULE_ID, TOKEN_FLAG);
   if (!state) return null;
-  if (state.loot) return foundry.utils.deepClone(state.loot);
+  if (state.loot) return normalizeGenericClawLoot(foundry.utils.deepClone(state.loot));
 
   if (migrate && state.messageId) {
     const message = game.messages.get(state.messageId);
@@ -1167,14 +1169,14 @@ function migrateLoot(raw, tokenUuid=null) {
     ...i
   }));
   loot.claims ||= [];
-  return loot;
+  return normalizeGenericClawLoot(loot);
 }
 
-async function surfaceTokenLoot(tokenDoc, loot, {privateToUser=false} = {}) {
+async function surfaceTokenLoot(tokenDoc, loot, {privateToUser=false,recipientUserId=null} = {}) {
   // Le MJ actif doit recevoir la carte privée pour traiter automatiquement
   // les demandes socket. Il ne valide rien manuellement.
   const whisper = privateToUser
-    ? [...new Set([game.user.id,...game.users.filter(u=>u.isGM).map(u=>u.id)])]
+    ? [...new Set([recipientUserId || game.user.id,...game.users.filter(u=>u.isGM).map(u=>u.id)])]
     : null;
   const message = await createLootMessage(loot, {whisper, tokenDoc});
 
@@ -1424,10 +1426,31 @@ async function resolveRecipientActor(data, user) {
 
 async function onSocketMessage(data) {
   if (!data || typeof data !== "object") return;
+  if (data.type === "carcass-open" && isPrimaryGM()) await openCarcassForPlayer(data);
   if (data.type === "claim" && isPrimaryGM()) await processClaim(data);
+  if (data.type === "carcass-open-result" && data.userId === game.user.id && !data.ok)
+    ui.notifications?.warn(data.message);
   if (data.type === "claim-result" && data.userId === game.user.id) {
     const fn = data.ok ? ui.notifications?.info : ui.notifications?.warn;
     fn?.call(ui.notifications, data.message);
+  }
+}
+
+async function openCarcassForPlayer(data) {
+  const respond = (ok,message) => game.socket.emit(SOCKET,{type:"carcass-open-result",userId:data.userId,ok,message});
+  try {
+    const user=game.users.get(data.userId);
+    if(!user || user.isGM) return;
+    const tokenDoc=await resolveTokenDocument(data.tokenUuid);
+    if(!tokenDoc || tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene))
+      return respond(false,"H0D Loot : carcasse inaccessible sur cette scène.");
+    const loot=await getTokenLoot(tokenDoc,{migrate:true});
+    if(!loot?.items) return respond(false,"H0D Loot : aucun butin généré sur cette carcasse. Le MJ doit d'abord générer son butin.");
+    // Carte privée émise par le MJ et partagée avec le PJ : aucun écran de validation.
+    await surfaceTokenLoot(tokenDoc,loot,{privateToUser:true,recipientUserId:user.id});
+  }catch(error){
+    console.error("H0D Loot | ouverture de carcasse depuis le compte joueur",error);
+    respond(false,"H0D Loot : impossible d'ouvrir le butin ("+(error?.message||error)+").");
   }
 }
 
@@ -1552,7 +1575,15 @@ async function persistLoot(message, loot, tokenDoc=null) {
 async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
   if (entry.kind === "resource") return addResourceToActor(actor, entry.resourceId, quantity);
   if (entry.kind === "embedded") return addEmbeddedLootToActor(actor, entry, quantity, tokenDoc);
-  if (entry.kind === "machine-piece") return addMachinePartToActor(actor, entry, quantity);
+  if (entry.kind === "machine-piece") {
+    // Compatibilité des cartes déjà générées : une griffe générique vaut 1 PM.
+    if (isOrdinaryClawName(entry.name)) {
+      const pm=genericMachineResourceByName("Plaques métalliques");
+      if (!pm) throw new Error("Ressource canonique Plaques métalliques introuvable.");
+      return addResourceToActor(actor, pm.id, quantity);
+    }
+    return addMachinePartToActor(actor, entry, quantity);
+  }
   throw new Error(`Type de butin non transférable : ${entry.kind}`);
 }
 
