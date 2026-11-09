@@ -1,3 +1,10 @@
+## v0.6.21 — Paiement marchand : jetons ou ressources
+- Deux modes par vendeur ; réglage persistant dans son stock, avec compatibilité des anciennes valeurs `valueBarterEnabled`.
+- Débit réel des Jetons de Reconnaissance en premier, complément éventuel en troc ; exclusion stricte des jetons des matières valorisées.
+- Vérification du solde, du prix et de la propriété du PJ côté MJ, gestion des surplus, journal marchand et compensation des débits.
+- Mode ressources uniquement sans jetons ; conversion de valeurs dépendant de la politique du marchand, aucun taux global.
+- Tests ciblés de paiement mixte, anciens commerçants, annulations et remboursements. Pas d'activation automatique des stocks existants.
+
 ## v0.6.20 — Interface de troc dynamique et « Offre au plus juste »
 - Remplace « Vérifier le troc » par une fenêtre interactive unique présentant le lot, son prix, l'inventaire valorisé, la valeur par unité, les quantités détenues et la valeur cumulée. Chaque changement de quantité actualise instantanément le total, le restant à payer et l'éventuel surplus.
 - Bouton **« Offre au plus juste »** : cherche une combinaison **à surplus minimal**, puis **avec le moins d'unités offertes** à égalité, en respectant le stock réel. Algorithme de quantités bornées, sans écriture des Items. Si un inventaire dépasse la capacité de calcul garantie, l'assistance est désactivée plutôt que de proposer un résultat approximatif.
