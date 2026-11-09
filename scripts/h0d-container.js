@@ -7,6 +7,9 @@ import {openValueTradeDialog} from "./h0d-trade-dialog.js";
 const NS = "h0d-loot";
 const SOCKET = "module.h0d-loot";
 const CARD_FLAG = "containerStock";
+// Les anciens stocks cotés en jetons gardent leur prix. Un nouveau marchand peut aussi coter en ressources.
+const acceptsTradePrice=(mode,currency)=>mode==="tokens-first"?currency==="jetons":
+  mode==="resources-only"&&["jetons","ressources"].includes(currency);
 const TEMPLATE_ID = "H0DContActor0001";
 const esc = value => foundry.utils.escapeHTML(String(value ?? ""));
 const clone = value => foundry.utils.deepClone(value);
@@ -66,7 +69,7 @@ function renderStockCard(card) {
     const rows = offers.map(o => {
       const q = Math.max(0,o.quantity);
       const valueBarterAllowed=card.mode==="Marchand"&&card.valueBarterEnabled===true&&
-        o.currency==="jetons"&&Number.isSafeInteger(o.price)&&o.price>=0;
+        acceptsTradePrice(card.paymentMode,o.currency)&&Number.isSafeInteger(o.price)&&o.price>=0;
       const actions=card.mode==="Marchand"
         ? !q?'<span class="h0d-loot-empty">épuisé</span>'
           : valueBarterAllowed&&claimable?'<span class="h0d-loot-actions"><button type="button" data-h0d-container-action="trade" data-index="'+o.index+'" title="Acheter selon le mode de paiement du marchand"><i class="fa-solid fa-right-left"></i> Troquer</button></span>'
@@ -143,8 +146,8 @@ async function requestContainerTrade(card,offerIndex) {
   const offer=card.offers.find(o=>o.index===offerIndex);
   if(!offer||card.mode!=="Marchand"||card.valueBarterEnabled!==true)
     return ui.notifications?.warn("H0D : ce vendeur n'autorise pas le troc automatique.");
-  if(offer.currency!=="jetons"||!Number.isSafeInteger(offer.price)||offer.price<0)
-    return ui.notifications?.warn("H0D : prix non compatible avec le troc automatique.");
+  if(!acceptsTradePrice(card.paymentMode,offer.currency)||!Number.isSafeInteger(offer.price)||offer.price<0)
+    return ui.notifications?.warn("H0D : prix non compatible avec le mode de paiement.");
   const recipient=await helpers.chooseRecipientActor();
   if(!recipient?.actor)return;
   // Le dialogue ne débite rien. Il présente les valeurs en temps réel,
@@ -321,8 +324,8 @@ async function tradeSerialized(data) {
       return respond(false,"H0D : offre modifiée. Rouvre le vendeur.");
     if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)
       return respond(false,"H0D : article épuisé.");
-    if(offer.currency!=="jetons"||!Number.isSafeInteger(offer.price)||offer.price<0)
-      return respond(false,"H0D : prix non défini ou hors mode troc.");
+    if(!acceptsTradePrice(paymentMode,offer.currency)||!Number.isSafeInteger(offer.price)||offer.price<0)
+      return respond(false,"H0D : prix non défini ou incompatible avec le mode de paiement.");
     const actor=await helpers.resolveRecipientActor(data,user);
     if(!actor||(!user.isGM&&!helpers.actorOwnedByUser(actor,user)))
       return respond(false,"H0D : ce PJ ne vous appartient pas.");
