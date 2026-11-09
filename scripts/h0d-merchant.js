@@ -131,7 +131,10 @@ export async function openMerchant(actorValue){
   return (ai<0?99:ai)-(bi<0?99:bi)||a[0].localeCompare(b[0],"fr");
  }).map(([label,defs])=>`<optgroup label="${esc(label)}">${defs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)}</option>`).join("")}</optgroup>`).join("");
  const drafts=[];
- const content=merchantEditorContent({actorName:actor.name,state,catalogueSource:selector.source,
+ // Un élément DOM fournit un contenu de confiance à Foundry v14 :
+ // les data-attributs interactifs sont conservés lors du rendu du DialogV2.
+ const content=document.createElement("div");
+ content.innerHTML=merchantEditorContent({actorName:actor.name,state,catalogueSource:selector.source,
    builderOptions,builderAvailable:builderDefinitions.length>0});
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
@@ -169,7 +172,14 @@ export async function openMerchant(actorValue){
  const offers=readOffers(choice,allOffers).map(normalizeOffer);
  const mode=String(choice.paymentMode||"resources-only");
  if(!PAYMENT_MODES.includes(mode))throw new Error("Mode de paiement marchand invalide.");
- const next={...merchantState(actor),offers,
+ const current=merchantState(actor);
+ // Un PJ peut acheter durant l'édition. Ne jamais réintroduire dans le stock
+ // des lots vendus pendant l'ouverture de cette fenêtre.
+ if(JSON.stringify(current.offers)!==JSON.stringify(state.offers)){
+   ui.notifications.warn("H0D : le stock a changé pendant l'édition. Rouvre la fenêtre pour éviter d'écraser une vente.");
+   return null;
+ }
+ const next={...current,offers,
    enabled:choice.enabled===true||choice.enabled==="on",
    paymentMode:mode,valueBarterEnabled:true};
  // buyerId et toutes les autres métadonnées historiques restent inchangés.
