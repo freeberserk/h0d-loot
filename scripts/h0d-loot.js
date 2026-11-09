@@ -12,6 +12,26 @@ const TOKEN_FLAG = "generated";
 // remplace l'ancienne impression que le bouton ne fait rien.
 const pendingOpenRequests = new Map();
 const OPEN_RESPONSE_TIMEOUT_MS = 12000;
+const startupStatus={socketReady:false,containerReady:false,resourcesReady:false,errors:[]};
+function diagnosePlayerLoot({open=false}={}){
+  const tokens=Array.from(game.user?.targets||[]);
+  const gm=primaryGM();
+  const report={
+    moduleVersion:game.modules.get(MODULE_ID)?.version||"inconnue",
+    actorRole:game.user?.isGM?"MJ":"joueur",
+    socketReady:startupStatus.socketReady,
+    containerReady:startupStatus.containerReady,
+    resourcesReady:startupStatus.resourcesReady,
+    errors:[...startupStatus.errors],
+    primaryGM:gm?.name||null,
+    targetedTokens:tokens.map(t=>({name:t.name,uuid:t.document?.uuid||null})),
+    claimsEnabled:game.settings.get(MODULE_ID,"playersCanClaim"),
+    pendingRequests:pendingOpenRequests.size
+  };
+  console.info("H0D Loot | diagnostic local",report);
+  if(open)runLootButton();
+  return report;
+}
 function openError(err) {
   console.error("H0D Loot | erreur du bouton de butin",err);
   ui.notifications?.error("H0D Loot : ouverture impossible ("+String(err?.message||err)+").");
@@ -103,6 +123,13 @@ let compendiumByName = new Map();
 let compendiumStatus = {collection:null, found:0, expected:0, missing:[], available:false};
 
 Hooks.once("init", () => {
+  // Raccourci alternatif à configurer dans les touches de Foundry.
+  // Indépendant du rendu de la barre des outils, aucun raccourci imposé.
+  game.keybindings?.register(MODULE_ID,"openTargetLoot",{
+    name:"H0D Loot — ouvrir le butin ciblé",
+    hint:"Ouvre une carcasse, un coffre ou un vendeur ciblé ; alternative au bouton des Tokens.",
+    editable:[],restricted:false,onDown:()=>{runLootButton();return true;}
+  });
   game.settings.register(MODULE_ID, "machineTable", {
     name: "Table de loot — Machines",
     hint: "Nom de la RollTable utilisée pour les ressources génériques des machines.",
@@ -139,12 +166,22 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
-  await loadLibrary();
-  await loadCompendiumLibrary();
-  if (game.user.isGM) await ensureDefaultTables();
-
-  game.socket.on(SOCKET, onSocketMessage);
-  registerContainerSupport({chooseRecipientActor,resolveRecipientActor,resolveTokenDocument,actorOwnedByUser,isPrimaryGM,primaryGM,prepareLootedItemSource,sameStackVariant});
+  // IMPORTANT : le canal MJ/joueurs doit être prêt AVANT la création des tables,
+  // le chargement des ressources ou l'indexation d'un compendium qui peut échouer.
+  try {
+    game.socket.on(SOCKET,onSocketMessage);
+    startupStatus.socketReady=true;
+  }catch(err){
+    startupStatus.errors.push("socket: "+String(err?.message||err));
+    console.error("H0D Loot | socket d'ouverture indisponible",err);
+  }
+  try {
+    registerContainerSupport({chooseRecipientActor,resolveRecipientActor,resolveTokenDocument,actorOwnedByUser,isPrimaryGM,primaryGM,prepareLootedItemSource,sameStackVariant});
+    startupStatus.containerReady=true;
+  }catch(err){
+    startupStatus.errors.push("conteneur: "+String(err?.message||err));
+    console.error("H0D Loot | liaison des conteneurs indisponible",err);
+  }
 
   const mod = game.modules.get(MODULE_ID);
   if (mod) mod.api = {
@@ -164,11 +201,24 @@ Hooks.once("ready", async () => {
       })
     }),
     diagnose: () => foundry.utils.deepClone(compendiumStatus),
+    diagnoseOpen:diagnosePlayerLoot,
     ...merchantAPI
   };
 
   game.h0dMerchant={...merchantAPI};
-  console.log("H0D Loot | v0.6.17 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  // Point d'entrée indépendant de la barre des contrôles pour un test macro PJ.
+  game.h0dLoot={open:openLootForCurrentSelection,diagnoseOpen:diagnosePlayerLoot};
+  try {
+    await loadLibrary();
+    startupStatus.resourcesReady=resourceLibrary.size>0;
+    await loadCompendiumLibrary();
+    if(game.user.isGM)await ensureDefaultTables();
+  }catch(err){
+    startupStatus.errors.push("données: "+String(err?.message||err));
+    console.error("H0D Loot | données facultatives à initialiser",err);
+    ui.notifications?.warn("H0D Loot : données à vérifier ; le canal MJ-joueur reste actif.");
+  }
+  console.log("H0D Loot | v0.6.18 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
