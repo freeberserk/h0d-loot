@@ -7,7 +7,8 @@ const esc=v=>foundry.utils.escapeHTML(String(v??""));
 function ensureGM(){if(!game.user?.isGM)throw new Error("H0D Commerce : réservé au MJ.");}
 function actorOf(value){const actor=typeof value==="string"?game.actors.get(value):value;if(!actor||actor.documentName!=="Actor")throw new Error("Actor marchand introuvable.");return actor;}
 function merchantState(actor){
- const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null});
+ const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null,valueBarterEnabled:false});
+ state.valueBarterEnabled=state.valueBarterEnabled===true;
  // Lecture des anciens stocks : quantité non définie = 1, sans réécriture immédiate.
  // Les conditionnements historiques (Senn vend notamment un demi-lot de flèches) viennent du Catalogue exact.
  const catalogue=typeof game!=="undefined"&&game?.modules?.get("h0d-catalogue")?.active?game.h0dCatalogue:null;
@@ -41,6 +42,10 @@ export async function setMerchantRole(actorValue,enabled){
  state.enabled=!!enabled;await actor.setFlag(NS,FLAG,state);return clone(state);
 }
 export function getMerchant(actorValue){return merchantState(actorOf(actorValue));}
+export async function setValueBarterEnabled(actorValue,enabled){
+ ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
+ state.valueBarterEnabled=enabled===true;await actor.setFlag(NS,FLAG,state);return clone(state);
+}
 export async function assignMerchantBuyer(actorValue,buyerValue){
  ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
  const buyer=buyerValue?actorOf(buyerValue):null;
@@ -128,7 +133,9 @@ export async function openMerchant(actorValue){
  }).map(([label,defs])=>`<optgroup label="${esc(label)}">${defs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)}</option>`).join("")}</optgroup>`).join("");
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
-  content:`<p>Stock commercial hors encombrement. Retrait depuis le token avec H0D Loot ; paiement manuel.</p>
+  content:`<p>Stock commercial hors encombrement. Le joueur peut troquer directement depuis le token si tu actives la règle ci-dessous.</p>
+   <div class="form-group"><label>Troc automatique par valeur</label><input type="checkbox" name="valueBarterEnabled" ${state.valueBarterEnabled?"checked":""}></div>
+   <p><small><strong>Règle optionnelle du vendeur :</strong> 1 point de « Valeur / troc » (ou « Valeur unitaire » d’une ressource) = 1 jeton de prix. Seuls les prix entiers en jetons sont échangeables. Aucune monnaie n’est créée. Le MJ n’a pas de confirmation à donner par transaction.</small></p>
    <div class="form-group"><label>Rôle Marchand</label><input type="checkbox" name="enabled" ${state.enabled?"checked":""}></div>
    <div class="form-group"><label>Fiche acheteur</label><select name="buyer">${options}</select></div>
    <div style="max-height:55vh;overflow-y:auto;padding:5px">
@@ -158,6 +165,7 @@ export async function openMerchant(actorValue){
   await setMerchantOffers(actor,offers);
  }
  await assignMerchantBuyer(actor,choice.buyer||null);
+ await setValueBarterEnabled(actor,choice.valueBarterEnabled===true||choice.valueBarterEnabled==="on");
  await setMerchantRole(actor,choice.operation==="import"?true:choice.enabled===true||choice.enabled==="on");
  if(choice.operation==="publish")await publishMerchant(actor);
  actor.sheet?.render?.(true);
@@ -172,7 +180,7 @@ export async function publishMerchant(actorValue){
  if(!state.enabled)throw new Error("Active le rôle Marchand avant de publier.");
  const rows=state.offers.map(o=>`<tr><td>${esc(o.name)}</td><td>${o.quantity===null?"Non précisée":esc(o.quantity)}</td><td>${o.price===null?"À définir":esc(o.price+" "+o.currency)}</td></tr>`).join("");
  const content=`<section class="h0d-merchant-public"><h2>Étal de ${esc(actor.name)}</h2>
- <p>Offres consultables — achats à valider avec le MJ.</p>
+ <p>Offres consultables — troc via le token du vendeur si le troc automatique est activé.</p>
  <table><thead><tr><th>Marchandise</th><th>Quantité</th><th>Prix</th></tr></thead>
  <tbody>${rows||'<tr><td colspan="3">Aucune marchandise disponible</td></tr>'}</tbody></table>
  <p><small>Vitrine publiée à cet instant ; les modifications ultérieures du stock ne la mettent pas à jour automatiquement.</small></p></section>`;
@@ -194,4 +202,4 @@ export function installMerchantSheetButton(app,html){
  button.addEventListener("click",()=>openMerchant(actor).catch(e=>ui.notifications.error(e.message)));
  header.insertBefore(button,header.querySelector(".window-close")||null);
 }
-export const merchantAPI={getMerchant,setMerchantRole,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant};
+export const merchantAPI={getMerchant,setMerchantRole,setValueBarterEnabled,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant};

@@ -78,12 +78,12 @@ const received=[];
 const openSource=slice("async function openCarcassForPlayer","// Sérialisation sur une même carcasse");
 const playerForOpen={id:"PLAYER",isGM:false,viewedScene:"SCENE"};
 const openCarcass=new Function("game","SOCKET","resolveTokenDocument","getTokenLoot",
-  "surfaceTokenLoot","console",openSource+";return openCarcassForPlayer;")(
+  "surfaceTokenLoot","isContainerToken","openMerchantForPlayerOnGM","console",openSource+";return openCarcassForPlayer;")(
   {users:{get:id=>id==="PLAYER"?playerForOpen:null},
     socket:{emit:(_channel,payload)=>received.push(payload)}},
   "module.h0d-loot",async()=>({uuid:"Scene.SCENE.Token.T",hidden:false,parent:{id:"SCENE"}}),
   async()=>({source:{type:"machine"},items:[{name:"Fibres synthétiques",quantity:2}]}),
-  async(_token,_loot,options)=>received.push(options),{error:()=>{}}
+  async(_token,_loot,options)=>received.push(options),()=>false,async()=>{}, {error:()=>{}}
 );
 await openCarcass({userId:"PLAYER",tokenUuid:"Scene.SCENE.Token.T"});
 assert.equal(received.length,1);

@@ -1,8 +1,8 @@
 {
   "id": "h0d-loot",
   "title": "H0D Loot",
-  "description": "H0D Loot : carcasses persistantes, butins et stocks de conteneurs sur tokens, prélèvements sécurisés vers les PJ.",
-  "version": "0.6.14",
+  "description": "H0D Loot : carcasses, coffres et PNJ vendeurs. Troc automatique facultatif, contrôlé côté MJ.",
+  "version": "0.6.15",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"

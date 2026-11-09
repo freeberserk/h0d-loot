@@ -2,6 +2,8 @@ name: Build and publish Foundry module
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,6 +23,7 @@ jobs:
           node tests/player-autonomous-loot.mjs
           node tests/player-carcass-claw-pm.mjs
           node tests/catalogue-link.mjs
+          node tests/vendor-commerce.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-loot.js
@@ -29,8 +32,10 @@ jobs:
           node --check scripts/h0d-container.js
           node --check scripts/h0d-merchant-tiles.js
           node --check scripts/h0d-catalogue-link.js
+          node --check scripts/h0d-trade.js
           python3 -m json.tool module.json > /dev/null
       - name: Package and publish release
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -1,3 +1,13 @@
+## v0.6.15 — Commerce PJ / vendeur et troc automatique facultatif
+- Ouvrir depuis le compte joueur le stock d'un **PNJ vendeur** (Actor Créature/PJ avec rôle Marchand), même sans permission de lecture de ses flags, via le token ciblé (T).
+- Séparer butin gratuit et commerce : les anciennes commandes « Prendre » sont refusées côté MJ pour tout marchand, même en cas d'appel forgé.
+- Bouton **Troquer** directement sur la carte du vendeur ; choix des ressources et quantités du PJ, puis validation du prix et de l'inventaire au moment de la transaction.
+- **Option MJ par vendeur :** utiliser « Valeur / troc » (objets) et « Valeur unitaire » (ressources) comme équivalents numériques des prix en jetons. Ne pas appliquer cette règle sans activation explicite.
+- Contrôles MJ automatisés : propriété du PJ, visibilité vendeur, disponibilité, prix exact, référence, valeur, quantités et accord sur éventuel surplus. La transaction ne demande aucune validation du MJ.
+- Ressources du PJ décrémentées, article livré, quantité du vendeur décrémentée ; reçu conservé sur l'Actor vendeur. Restauration compensatoire si une écriture échoue. Aucun encaissement par monnaie virtuelle, aucune revente automatique des ressources.
+- Tests de non-régression sur règles de valorisation, troc insuffisant, stock, erreurs de livraison, restauration, prix absent, sécurité des anciennes cartes et PNJ vendeurs.
+- Validation dans Foundry VTT 14 côté PJ + MJ requise avant usage dans la campagne de production.
+
 ## v0.6.14 — Carcasses accessibles au joueur et griffes ordinaires en PM
 - Ouverture d'une carcasse depuis un compte joueur : le client transmet la référence du token ciblé, et le client MJ actif lit le stock canonique et publie directement la carte privée au PJ et aux MJ. **Aucune validation humaine** ; aucun besoin d'accès du joueur aux flags protégés du token.
 - Retour explicite au joueur si la carcasse est inaccessible ou si le MJ n'a pas encore généré de butin. Aucun tirage automatique sans décision du MJ.

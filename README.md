@@ -1,3 +1,22 @@
+## v0.6.15 — Commerce et troc par les PJ depuis le token d'un vendeur
+
+Les PNJ utilisant un template Créature ou PJ peuvent également être **vendeurs H0D** : sélectionne le token en MJ, ouvre l'outil **H0D Commerce**, active « Rôle Marchand », renseigne les offres et coche **« Troc automatique par valeur »** si ce vendeur accepte cette règle facultative. Le coffre Conteneur fonctionne toujours. Pour ouvrir la boutique, un joueur **cible le token vendeur avec T**, puis clique H0D Loot. Aucune tuile ni permission de lecture des flags secrets du PNJ n'est nécessaire ; le MJ connecté publie automatiquement la carte privée.
+
+### Règle de troc (opt-in par vendeur seulement)
+La règle proposée est **1 point de « Valeur / troc » sur un objet ou de « Valeur unitaire » sur une ressource = 1 jeton du prix de vente**. Cette équivalence est une option explicite à activer par le MJ, non une règle imposée à toute la campagne. Les vendeurs non configurés et les articles sans prix entier ou utilisant une autre monnaie n'acceptent pas le troc automatique. Un prix explicitement réglé à zéro autorise une transaction gratuite uniquement si le vendeur a accepté la règle.
+
+Les prix des offres de la Caravane de la Longue Corde restent ceux du Catalogue (1 à 3 jetons, avec la variante à prix variable exclue jusqu'à définition d'un prix). Le conditionnement des Flèches renforcées ×5 reste inchangé. Chaque action « Troquer » concerne un lot et son prix.
+
+Le joueur choisit son PJ possédé et les quantités d'objets ou ressources valorisés qu'il offre. Le client MJ valide sur le stock canonique l'inventaire réel, les prix, les stocks et les permissions ; **aucune confirmation humaine du MJ**. Les ressources retenues sont déduites du PJ, l'article lui est attribué et le stock du vendeur diminue. Un reçu des ressources remises reste dans `flags.h0d-loot.merchant.barterReceipts` (100 dernières transactions), mais ces ressources ne deviennent pas automatiquement des offres de revente du vendeur. Les piles entièrement épuisées sont supprimées après succès.
+
+**Surpaiement :** aucun rendu de différence. Le joueur reçoit une confirmation distincte indiquant le surplus avant de valider, et le serveur vérifie cet accord. Si l'attribution de l'article ou l'enregistrement du stock échoue, le module tente de restituer la valeur débitée et de retirer l'article créé, puis signale explicitement tout échec de cette restauration.
+
+**Sécurité :** les anciennes commandes « Prendre 1 / Prendre tout » ne permettent plus de récupérer gratuitement des marchandises. Elles restent actives pour les carcasses et les conteneurs de butin. Le vendeur doit être sur la scène du joueur et un MJ connecté reste requis techniquement ; le MJ n'a aucun bouton d'approbation à presser.
+
+**Limites :** cette version gère le **troc en valeur**, pas un portefeuille autonome de jetons ni la négociation des prix. Elle ne détermine pas le prix des offres non chiffrées et ne revend pas automatiquement les objets remis. Les contrôles automatisés ne remplacent pas un test réel en Foundry VTT 14.
+
+---
+
 ## v0.6.14 — Carcasses joueur et PM des griffes ordinaires
 
 **Compte joueur :** cibler la carcasse avec **T**, puis cliquer sur **H0D Loot**. Le client MJ actif fournit directement une carte privée partagée au PJ et aux MJ. Aucun bouton d'approbation n'est demandé au MJ. Le joueur choisit ensuite **Prendre 1 / Prendre tout ce type / Tout récupérer** pour son PJ possédé. Les erreurs et les transferts effectivement terminés doivent être notifiés au joueur.
