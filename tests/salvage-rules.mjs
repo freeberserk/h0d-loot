@@ -30,7 +30,9 @@ const js=readFileSync(new URL("../scripts/h0d-loot.js",import.meta.url),"utf8");
 assert.match(js,/addLoot\(lootMap, part\.resource, part\.quantity/,"Les quantités de PM sont transmises");
 assert.match(js,/exactRareCatalogueDefinition\(rareKey\)/,"Identité rare exacte du Catalogue");
 assert.match(js,/entry\.kind === "catalogue-resource"/,"Les pièces rares sont transférables");
-assert.match(js,/addExactCatalogueRareToActor\(actor,entry\.catalogueKey,quantity\)/,"Transfert sécurisé des rares");
+assert.match(js,/addExactCatalogueRareToActor\(actor,entry\.catalogueKey,quantity,entry\.sourceCharge\)/,"Transfert rare avec charge de la pièce source");
+assert.match(js,/Number\(p\.H0D_Composant_Charge_Entiere\)\|\|null/,"La charge entière suit le composant");
+assert.match(js,/chargeFromSourceComponent/,"Traçabilité de la charge rare par composant");
 assert.match(js,/source\.system\.props=\{\.\.\.source\.system\.props,\.\.\.foundry\.utils\.deepClone\(canonical\.definition\.props\)\}/,
  "Les propriétés de template sont conservées et non remplacées");
 assert.match(js,/syncResourceChargesForActor/);

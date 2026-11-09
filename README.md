@@ -1,3 +1,9 @@
+## v0.6.23 — Charge des pièces rares issues des machines
+
+Amélioration du transfert des composants rares : lorsque le Catalogue ne possède pas encore une charge propre, le nouveau butin peut utiliser la **charge de la pièce entière** fournie par Machine Builder (champ `H0D_Composant_Charge_Entiere`). La provenance est conservée dans le flag `chargeFromSourceComponent`.
+
+Une charge canonique explicite du Catalogue reste prioritaire. Si deux rares de même nom possèdent des charges différentes, elles ne sont pas fusionnées dans la même pile. Aucun inventaire existant n'est réécrit automatiquement. Sans charge de Catalogue ou de composant, le zéro reste un substitut technique annoté, et non un choix de règle validé.
+
 ## v0.6.22 — Récupération : rendements, rareté et charges
 
 **Machine Builder v0.12.0** transmet le rendement, la charge de la pièce entière, une probabilité rare par composant et une clé de Catalogue exacte. Lorsqu'une carcasse est générée, chaque composant donne **soit une pièce rare cataloguée, soit les ressources normales**. Le tirage est mémorisé dans le flag de carcasse, sans relance à chaque consultation.

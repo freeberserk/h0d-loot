@@ -223,7 +223,7 @@ Hooks.once("ready", async () => {
     console.error("H0D Loot | données facultatives à initialiser",err);
     ui.notifications?.warn("H0D Loot : données à vérifier ; le canal MJ-joueur reste actif.");
   }
-  console.log("H0D Loot | v0.6.22 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
+  console.log("H0D Loot | v0.6.23 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -974,6 +974,7 @@ function findRecoverableMachineParts(actor) {
         catalogueKey:rareKey,name:rareDefinition.name,
         img:rareDefinition.img||item.img||"icons/svg/item-bag.svg",
         quantity:1,category:"Composants rares",label:item.name,
+        sourceCharge:Number(p.H0D_Composant_Charge_Entiere)||null,
         note:"Pièce rare issue de "+item.name+" ; aucun matériau commun supplémentaire"
       });
       continue;
@@ -1851,7 +1852,7 @@ async function persistLoot(message, loot, tokenDoc=null) {
 
 async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
   if (entry.kind === "resource") return addResourceToActor(actor, entry.resourceId, quantity);
-  if (entry.kind === "catalogue-resource") return addExactCatalogueRareToActor(actor,entry.catalogueKey,quantity);
+  if (entry.kind === "catalogue-resource") return addExactCatalogueRareToActor(actor,entry.catalogueKey,quantity,entry.sourceCharge);
   if (entry.kind === "embedded") return addEmbeddedLootToActor(actor, entry, quantity, tokenDoc);
   if (entry.kind === "machine-piece") {
     // Le champ Loot du composant passe avant tout transfert d'Objet physique,
@@ -1969,11 +1970,17 @@ async function syncResourceChargesForActor(actor=null) {
   return {corrected,preserved,pending};
 }
 
-async function addExactCatalogueRareToActor(actor,key,quantity){
+async function addExactCatalogueRareToActor(actor,key,quantity,sourceCharge=null){
   const def=exactRareCatalogueDefinition(key);
   if(!def)throw new Error("Référence rare absente ou non disponible dans le H0D Catalogue : "+key);
+  const explicitCharge=Number(sourceCharge);
+  const validatedCharge=knownResourceUnitCharge({name:def.name,source:{system:{props:def.props}}},def);
+  const effectiveCharge=validatedCharge!==null?validatedCharge:
+    Number.isFinite(explicitCharge)&&explicitCharge>0?explicitCharge:null;
   const existing=actor.items.find(i=>i.system?.template===RESOURCE_TEMPLATE_ID
-    &&i.getFlag?.(MODULE_ID,"catalogueKey")===key);
+    &&i.getFlag?.(MODULE_ID,"catalogueKey")===key
+    &&(effectiveCharge===null||
+      Number(i.system?.props?.H0D_Ressource_Charge_Unitaire)===effectiveCharge));
   if(existing){
     const current=Math.max(0,Math.floor(Number(existing.system?.props?.H0D_Ressource_Quantite)||0));
     await existing.update({"system.props.H0D_Ressource_Quantite":String(current+quantity)});
@@ -1993,6 +2000,10 @@ async function addExactCatalogueRareToActor(actor,key,quantity){
   source.system.props.H0D_Ressource_Quantite=String(quantity);
   source.system.props.H0D_Stockage="PJ";
   const charge=applyKnownResourceCharge(source.system.props,{name:def.name,source:{system:{props:def.props}}},def);
+  if(charge.pending&&effectiveCharge!==null){
+    source.system.props.H0D_Ressource_Charge_Unitaire=String(effectiveCharge);
+    charge.pending=false;
+  }
   if(charge.pending){
     const note=String(source.system.props.H0D_Ressource_Notes||"");
     source.system.props.H0D_Ressource_Notes=[note,"Charge spéciale à valider : 0 = valeur technique provisoire."]
@@ -2000,7 +2011,8 @@ async function addExactCatalogueRareToActor(actor,key,quantity){
   }
   source.flags??={};
   source.flags[MODULE_ID]={...(source.flags[MODULE_ID]||{}),looted:true,
-    catalogueKey:key,rareFromMachine:true,chargePending:charge.pending};
+    catalogueKey:key,rareFromMachine:true,chargePending:charge.pending,
+    chargeFromSourceComponent:validatedCharge===null&&effectiveCharge!==null};
   const [created]=await actor.createEmbeddedDocuments("Item",[source]);
   return created;
 }

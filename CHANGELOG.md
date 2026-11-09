@@ -1,3 +1,10 @@
+## v0.6.23 — Charge d'une pièce spéciale selon sa source
+
+- Transmet la charge de la pièce source au transfert rare quand le Catalogue n'a pas encore défini sa charge.
+- Empêche de fusionner les piles rares dont la charge unitaire diffère.
+- Préserve les charges canoniques, les anciennes piles et les inventaires existants.
+- Étend le test de non-régression des transferts rares.
+
 ## v0.6.22 — Récupération par composant et charges
 
 - Tirages de pièces rares par clé Catalogue exacte, à chances propres à chaque pièce et persistés à la génération de la carcasse.
