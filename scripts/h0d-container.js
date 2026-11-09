@@ -410,6 +410,11 @@ async function processOpen(data) {
   catch (error) { game.socket.emit(SOCKET,{type:"container-result",userId:user.id,ok:false,message:"H0D : "+error.message}); }
 }
 
+export async function openMerchantForPlayerOnGM(data) {
+  if(!helpers?.isPrimaryGM?.())throw new Error("Action réservée au client MJ actif.");
+  return processOpen(data);
+}
+
 export function registerContainerSupport(dependencies) {
   helpers=dependencies;
   game.socket.on(SOCKET,data => {
