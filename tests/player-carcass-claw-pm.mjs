@@ -73,4 +73,35 @@ const claim=slice("async function transferEntryToActor","async function addMachi
 assert.match(claim,/isOrdinaryClawName\(entry\.name\)/,"Pre-existing old cards grant PM");
 assert.match(claim,/addResourceToActor\(actor, pm\.id, quantity\)/);
 
+// Le MJ peut traiter une prise issue d'une carte privée qui ne figure pas dans son cache Chat.
+const claimSource=slice("async function processClaimSerialized","function claimRecord");
+const notification=[];
+const claimed=[];
+const realLoot={lootId:"loot-1",items:[{entryId:"fiber",kind:"resource",resourceId:"fs",
+  name:"Fibres synthétiques",quantity:2}],claims:[]};
+const owner={name:"PJ",items:[]};
+const playerUser={id:"PLAYER",isGM:false};
+const socket=[];
+const processClaim=new Function("game","ui","MODULE_ID","SOCKET","resolveRecipientActor",
+  "actorOwnedByUser","resolveTokenDocument","getTokenLoot","migrateLoot",
+  "isTransferable","transferEntryToActor","persistLoot","claimRecord","console",
+  claimSource+";return processClaimSerialized;")(
+    {user:{id:"GM",isGM:true},users:{get:id=>id==="PLAYER"?playerUser:null},
+      messages:{get:()=>null},socket:{emit:(_channel,data)=>socket.push(data)}},
+    {notifications:{info:x=>notification.push(x),warn:x=>notification.push(x)}},
+    "h0d-loot","module.h0d-loot",
+    async()=>owner,()=>true,async()=>({uuid:"Scene.S.Token.C"}),
+    async()=>structuredClone(realLoot),()=>null,
+    entry=>entry.kind==="resource",async(_actor,entry,qty)=>claimed.push([entry.name,qty]),
+    async(_message,loot)=>{realLoot.items[0].quantity=loot.items[0].quantity;},
+    (_user,_actor,entry,qty)=>({entryId:entry.entryId,quantity:qty}),
+    {error:()=>{}}
+);
+await processClaim({userId:"PLAYER",tokenUuid:"Scene.S.Token.C",messageId:"private-card-not-in-gm-cache",
+  lootId:"loot-1",actorId:"pj",entryId:"fiber",quantity:1});
+assert.deepEqual(claimed,[["Fibres synthétiques",1]],"Player claim reaches real inventory transfer");
+assert.equal(realLoot.items[0].quantity,1,"Canonical stock is decremented");
+assert.equal(socket.at(-1)?.type,"claim-result");
+assert.equal(socket.at(-1)?.ok,true,"Player receives success only after actual transfer");
+
 console.log("OK : joueur -> carte MJ, PM pour griffe ordinaire et cartes anciennes, pièces rares conservées.");
