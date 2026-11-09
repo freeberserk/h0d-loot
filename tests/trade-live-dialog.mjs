@@ -81,6 +81,8 @@ assert.equal(preview(items,[6,0],4).status,"invalid");
 assert.equal(preview(items,[1.5,0],4).status,"invalid");
 assert.equal(preview(items,[-1,0],4).status,"invalid");
 assert.match(dialogSource,/DialogV2\.wait\(\{/);
+assert.doesNotMatch(dialogSource,/content\.className\s*=/,"DialogV2 v14 refuse les attributs sur la racine HTMLElement");
+assert.match(dialogSource,/<div class="h0d-trade-root">/,"Conserver l'habillage sur un enfant");
 assert.match(dialogSource,/data-h0d-trade-auto/);
 assert.match(dialogSource,/data-h0d-trade-progress/);
 assert.match(dialogSource,/data-h0d-trade-subtotal/);

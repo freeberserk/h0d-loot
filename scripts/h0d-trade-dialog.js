@@ -69,9 +69,11 @@ export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="
         ?"Impossible de trouver une combinaison automatiquement ; compose l'offre manuellement."
         :"Cherche le plus petit surplus, puis le moins d'unités possible.";
 
+  // Foundry v14 DialogV2: an HTMLElement passed as content MUST be a plain
+  // root <div> without ANY attributes. Style a nested element instead.
   const content=document.createElement("div");
-  content.className="h0d-trade-root";
   content.innerHTML=`
+    <div class="h0d-trade-root">
     <div class="h0d-trade-heading">
       <div><h3>Troc avec ${escape(vendorName)}</h3><small>Lot : ${escape(offer.name)}</small></div>
       <div class="h0d-trade-price"><small>Prix demandé</small><strong>${price} ${priceUnit}</strong></div>
@@ -95,6 +97,7 @@ export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="
       </label>
     </div>
     <p class="h0d-trade-footnote">Le paiement sera contrôlé à nouveau sur l'inventaire réel et le stock du marchand avant l'échange.</p>
+    </div>
   `;
 
   const render=(_event,dialog)=>{

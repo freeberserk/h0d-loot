@@ -47,6 +47,12 @@ const run=async({items,price,action,validate})=>{
  };
  const DialogV2={
    wait:async config=>{
+     // Foundry v14 rejette un HTMLElement de contenu avec des attributs.
+     // Ne pas ajouter class/id/style sur la racine passée à DialogV2.
+     assert.equal(config.content,content,"Utiliser le div racine prévu");
+     assert.equal(content.className,"","Le div racine du dialogue n'a aucun attribut");
+     assert.ok(content.innerHTML.includes('<div class="h0d-trade-root">'),
+       "Le style se trouve sur un div intérieur, après la racine neutre");
      assert.ok(content.innerHTML.includes("Offre au plus juste"));
      assert.ok(content.innerHTML.includes("Valeur offerte"));
      assert.ok(content.innerHTML.includes("Possédés : "));

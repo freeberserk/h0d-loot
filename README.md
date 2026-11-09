@@ -1,3 +1,13 @@
+## v0.6.24 — Correctif du dialogue de troc sous Foundry v14
+
+Le clic **Troquer** sur une offre de marchand ouvrait une erreur `config.content element must have no attributes`. La cause était la classe CSS `h0d-trade-root` directement appliquée au `<div>` HTMLElement remis à `DialogV2.wait`. Foundry v14 exige un élément racine **sans aucun attribut**.
+
+Le `<div>` racine transmis au dialogue est désormais neutre. La classe et le contenu interactif ont été déplacés dans un `<div class="h0d-trade-root">` imbriqué ; les gestionnaires d'événements ciblent ce même élément interne.
+
+- Correction de l'ouverture du dialogue sans changer les prix, les modes de paiement, le stock ou les permissions MJ/joueurs.
+- Tous les tests de calcul d'offre, de quantités et de validation du surplus restent actifs. Ajout de tests empêchant le retour d'attributs sur la racine du dialogue.
+- Aucun traitement automatique des inventaires ou des transactions passées. Le transfert reste vérifié côté MJ à la confirmation.
+
 ## v0.6.23 — Charge des pièces rares issues des machines
 
 Amélioration du transfert des composants rares : lorsque le Catalogue ne possède pas encore une charge propre, le nouveau butin peut utiliser la **charge de la pièce entière** fournie par Machine Builder (champ `H0D_Composant_Charge_Entiere`). La provenance est conservée dans le flag `chargeFromSourceComponent`.

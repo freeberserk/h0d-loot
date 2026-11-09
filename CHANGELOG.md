@@ -1,3 +1,10 @@
+## v0.6.24 — Correction Foundry v14 de la fenêtre de troc
+
+- Répare l'erreur `config.content element must have no attributes` au clic **Troquer**.
+- Transmet à `DialogV2.wait` un `div` racine sans classe/id/style et place `h0d-trade-root` dans un élément enfant.
+- Préserve le design, la mise à jour dynamique, l'offre au plus juste, le calcul des surplus et les protections du commerce.
+- Tests de régression : racine neutre, classe interne et conservation des interactions.
+
 ## v0.6.23 — Charge d'une pièce spéciale selon sa source
 
 - Transmet la charge de la pièce source au transfert rare quand le Catalogue n'a pas encore défini sa charge.
