@@ -2021,6 +2021,8 @@ async function addResourceToActor(actor, resourceId, quantity) {
   const resource = resourceLibrary.get(resourceId);
   if (!resource) throw new Error(`Ressource ${resourceId} absente de la bibliothèque H0D`);
   const canonical=resolveCatalogueResource(resource,catalogueApi(game));
+  if(canonical.status!=="canonique"||!canonical.definition)
+    throw new Error("Ressource non référencée dans H0D Catalogue : "+resource.name);
 
   const existing = actor.items.find(i => {
     const flagId = i.getFlag?.(MODULE_ID, "resourceId");
@@ -2052,12 +2054,10 @@ async function addResourceToActor(actor, resourceId, quantity) {
 
   source.system ??= {};
   source.system.props ??= {};
-  if(canonical.definition?.props){
-    // Nouvelle ressource uniquement : Catalogue prioritaire, compendium conservé
-    // comme modèle CSB et source d'image. Ne pas toucher aux Items déjà possédés.
-    source.system.props={...source.system.props,...foundry.utils.deepClone(canonical.definition.props)};
-  }
-  applyKnownResourceCharge(source.system.props,resource,canonical.definition);
+  // Le Compendium fournit le support CSB et l'image, jamais les règles ou valeurs.
+  // H0D Catalogue est l'unique autorité mécanique pour tout nouvel Item.
+  source.system.props={...source.system.props,...foundry.utils.deepClone(canonical.definition.props)};
+  // Ne pas substituer une charge estimée à la charge définie par le Catalogue.
   source.system.props.H0D_Ressource_Quantite = String(quantity);
   source.system.props.H0D_Stockage = "PJ";
   source.flags ??= {};
