@@ -2,7 +2,7 @@
   "id": "h0d-loot",
   "title": "H0D Loot",
   "description": "H0D Loot : carcasses persistantes, butins et stocks de conteneurs sur tokens, prélèvements sécurisés vers les PJ.",
-  "version": "0.6.12",
+  "version": "0.6.13",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
