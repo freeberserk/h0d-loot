@@ -145,7 +145,7 @@ Hooks.once("ready", async () => {
   };
 
   game.h0dMerchant={...merchantAPI};
-  console.log("H0D Loot | v0.6.13 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.14 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -207,13 +207,18 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   html.querySelectorAll("[data-h0d-loot-action]").forEach(button => {
     button.addEventListener("click", async event => {
       event.preventDefault();
-      const action = button.dataset.h0dLootAction;
-      if (action === "take-one" || action === "take-all-row") {
-        const entryId = button.dataset.entryId;
-        const quantity = action === "take-one" ? 1 : "all";
-        await requestClaim(message.id, entryId, quantity);
-      } else if (action === "take-all") {
-        await requestClaim(message.id, null, "all-card");
+      try {
+        const action = button.dataset.h0dLootAction;
+        if (action === "take-one" || action === "take-all-row") {
+          const entryId = button.dataset.entryId;
+          const quantity = action === "take-one" ? 1 : "all";
+          await requestClaim(message.id, entryId, quantity);
+        } else if (action === "take-all") {
+          await requestClaim(message.id, null, "all-card");
+        }
+      } catch(error) {
+        console.error("H0D Loot | clic de récupération",error);
+        ui.notifications?.warn("H0D Loot : récupération impossible ("+(error?.message||error)+").");
       }
     });
   });
@@ -375,6 +380,7 @@ async function playerOpenTargetedLoot() {
   }
 
   const targets = Array.from(game.user?.targets ?? []);
+  // Les tokens ciblés sont visibles au joueur même lorsque leurs flags de butin ne lui sont pas accessibles.
   const controlledWithLoot = (canvas?.tokens?.controlled ?? []).filter(t => t.document.getFlag(MODULE_ID, TOKEN_FLAG) || isContainerToken(t));
   const candidates = targets.length ? targets : controlledWithLoot;
 
@@ -389,9 +395,10 @@ async function playerOpenTargetedLoot() {
       opened++;
       continue;
     }
-    const loot = await getTokenLoot(token.document, {migrate:false});
-    if (!loot) continue;
-    await surfaceTokenLoot(token.document, loot, {privateToUser:true});
+    // Lecture ET publication déléguées automatiquement au MJ actif.
+    // La récupération du butin ne nécessite aucune permission de lecture sur l'Actor de la carcasse.
+    if (!primaryGM()) return ui.notifications?.warn("H0D Loot : un MJ connecté est nécessaire pour ouvrir la carcasse.");
+    game.socket.emit(SOCKET, {type:"carcass-open",userId:game.user.id,tokenUuid:token.document.uuid});
     opened++;
   }
 
@@ -690,6 +697,31 @@ function genericMachineResourceByName(name) {
   return ["Plaque","Fibre","Lentille","Cellule","Circuit","Fluide","Noyau"].includes(type) ? resource : null;
 }
 
+function isOrdinaryClawName(name) {
+  // Uniquement les griffes génériques. Ne jamais convertir les crocs nommés
+  // ni des pièces rares (ex. Griffe de machine intacte / module de chasse).
+  const n=norm(name);
+  return /^griffes?(?: (?:gauche|droite|avant|arriere|anterieure|posterieure|superieure|inferieure|[0-9]+))?$/.test(n);
+}
+
+// Relecture compatible des cartes déjà générées : aucun objet d'inventaire existant n'est modifié.
+function normalizeGenericClawLoot(loot) {
+  if (loot?.source?.type !== "machine") return loot;
+  const pm=genericMachineResourceByName("Plaques métalliques");
+  if (!pm) return loot; // Aucune ressource ne doit être créée si la bibliothèque est absente.
+  for (const entry of loot.items||[]) {
+    if(entry.kind!=="machine-piece" || !isOrdinaryClawName(entry.name))continue;
+    const originalName=entry.name;
+    entry.kind="resource";
+    entry.resourceId=pm.id;
+    entry.name=pm.name;
+    entry.img=pm.source?.img||"icons/svg/item-bag.svg";
+    entry.category="Ressource";
+    entry.note="Recyclage d'une griffe ordinaire ("+originalName+") : 1 PM";
+  }
+  return loot;
+}
+
 function fluidResourceFromText(text) {
   const n = norm(text);
   const mapping = [
@@ -817,6 +849,19 @@ function findRecoverableMachineParts(actor) {
 
     // Détruite = aucun composant physique exploitable dans cette règle.
     if(stateNorm === "detruit") continue;
+
+    // Une griffe ordinaire produit 1 PM ; les composants spéciaux restent des objets.
+    // Aucune récupération n'est accordée aux pièces détruites ou non détachées à 0 PV.
+    if(isOrdinaryClawName(item.name) && (stateNorm === "detache" || hp > 0)) {
+      const pm=genericMachineResourceByName("Plaques métalliques");
+      if(pm){
+        entries.push({
+          entryId:foundry.utils.randomID(),kind:"resource",resource:pm,quantity:1,
+          note:"Recyclage de "+item.name+" : 1 PM",label:item.name
+        });
+        continue;
+      }
+    }
 
     // Détachée : l'état physique de la pièce prime.
     if(stateNorm === "detache") {
@@ -1136,7 +1181,7 @@ async function manualLootDialog() {
 async function getTokenLoot(tokenDoc, {migrate=false} = {}) {
   const state = tokenDoc?.getFlag(MODULE_ID, TOKEN_FLAG);
   if (!state) return null;
-  if (state.loot) return foundry.utils.deepClone(state.loot);
+  if (state.loot) return normalizeGenericClawLoot(foundry.utils.deepClone(state.loot));
 
   if (migrate && state.messageId) {
     const message = game.messages.get(state.messageId);
@@ -1167,14 +1212,14 @@ function migrateLoot(raw, tokenUuid=null) {
     ...i
   }));
   loot.claims ||= [];
-  return loot;
+  return normalizeGenericClawLoot(loot);
 }
 
-async function surfaceTokenLoot(tokenDoc, loot, {privateToUser=false} = {}) {
+async function surfaceTokenLoot(tokenDoc, loot, {privateToUser=false,recipientUserId=null} = {}) {
   // Le MJ actif doit recevoir la carte privée pour traiter automatiquement
   // les demandes socket. Il ne valide rien manuellement.
   const whisper = privateToUser
-    ? [...new Set([game.user.id,...game.users.filter(u=>u.isGM).map(u=>u.id)])]
+    ? [...new Set([recipientUserId || game.user.id,...game.users.filter(u=>u.isGM).map(u=>u.id)])]
     : null;
   const message = await createLootMessage(loot, {whisper, tokenDoc});
 
@@ -1306,8 +1351,8 @@ async function requestClaim(messageId, entryId, quantity) {
   else {
     const gm = primaryGM();
     if (!gm) return ui.notifications?.error("H0D Loot : aucun MJ actif pour sécuriser le transfert.");
+    // Pas de "demande au MJ" ni de confirmation prématurée : notifier après traitement réel.
     game.socket.emit(SOCKET, payload);
-    ui.notifications?.info(`H0D Loot : récupération vers ${actor.name} en cours…`);
   }
 }
 
@@ -1397,7 +1442,7 @@ async function chooseRecipientActor() {
     return chooseRecipientFromList(worldOwned, "H0D Loot — quel PJ reçoit le butin ?");
   }
 
-  ui.notifications?.warn("H0D Loot : aucun PJ contrôlé ou possédé par ce joueur.");
+  ui.notifications?.warn("H0D Loot : aucun PJ accessible. Le MJ doit attribuer les droits Propriétaire au compte joueur sur son Actor PJ.");
   return null;
 }
 
@@ -1424,10 +1469,31 @@ async function resolveRecipientActor(data, user) {
 
 async function onSocketMessage(data) {
   if (!data || typeof data !== "object") return;
+  if (data.type === "carcass-open" && isPrimaryGM()) await openCarcassForPlayer(data);
   if (data.type === "claim" && isPrimaryGM()) await processClaim(data);
+  if (data.type === "carcass-open-result" && data.userId === game.user.id && !data.ok)
+    ui.notifications?.warn(data.message);
   if (data.type === "claim-result" && data.userId === game.user.id) {
     const fn = data.ok ? ui.notifications?.info : ui.notifications?.warn;
     fn?.call(ui.notifications, data.message);
+  }
+}
+
+async function openCarcassForPlayer(data) {
+  const respond = (ok,message) => game.socket.emit(SOCKET,{type:"carcass-open-result",userId:data.userId,ok,message});
+  try {
+    const user=game.users.get(data.userId);
+    if(!user || user.isGM) return;
+    const tokenDoc=await resolveTokenDocument(data.tokenUuid);
+    if(!tokenDoc || tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene))
+      return respond(false,"H0D Loot : carcasse inaccessible sur cette scène.");
+    const loot=await getTokenLoot(tokenDoc,{migrate:true});
+    if(!loot?.items) return respond(false,"H0D Loot : aucun butin généré sur cette carcasse. Le MJ doit d'abord générer son butin.");
+    // Carte privée émise par le MJ et partagée avec le PJ : aucun écran de validation.
+    await surfaceTokenLoot(tokenDoc,loot,{privateToUser:true,recipientUserId:user.id});
+  }catch(error){
+    console.error("H0D Loot | ouverture de carcasse depuis le compte joueur",error);
+    respond(false,"H0D Loot : impossible d'ouvrir le butin ("+(error?.message||error)+").");
   }
 }
 
@@ -1552,7 +1618,15 @@ async function persistLoot(message, loot, tokenDoc=null) {
 async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
   if (entry.kind === "resource") return addResourceToActor(actor, entry.resourceId, quantity);
   if (entry.kind === "embedded") return addEmbeddedLootToActor(actor, entry, quantity, tokenDoc);
-  if (entry.kind === "machine-piece") return addMachinePartToActor(actor, entry, quantity);
+  if (entry.kind === "machine-piece") {
+    // Compatibilité des cartes déjà générées : une griffe générique vaut 1 PM.
+    if (isOrdinaryClawName(entry.name)) {
+      const pm=genericMachineResourceByName("Plaques métalliques");
+      if (!pm) throw new Error("Ressource canonique Plaques métalliques introuvable.");
+      return addResourceToActor(actor, pm.id, quantity);
+    }
+    return addMachinePartToActor(actor, entry, quantity);
+  }
   throw new Error(`Type de butin non transférable : ${entry.kind}`);
 }
 

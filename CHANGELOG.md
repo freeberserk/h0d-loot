@@ -1,3 +1,12 @@
+## v0.6.14 — Carcasses accessibles au joueur et griffes ordinaires en PM
+- Ouverture d'une carcasse depuis un compte joueur : le client transmet la référence du token ciblé, et le client MJ actif lit le stock canonique et publie directement la carte privée au PJ et aux MJ. **Aucune validation humaine** ; aucun besoin d'accès du joueur aux flags protégés du token.
+- Retour explicite au joueur si la carcasse est inaccessible ou si le MJ n'a pas encore généré de butin. Aucun tirage automatique sans décision du MJ.
+- Les erreurs au clic « Prendre 1 / Prendre tout ce type / Tout récupérer » sont désormais visibles ; la notification de transfert anticipée est retirée. Le résultat réel (succès ou échec) reste transmis par le MJ actif.
+- Les **griffes ordinaires** (Griffe, Griffes, Griffe gauche/droite...) de machines se récupèrent sous forme de **Plaques métalliques (PM)** plutôt qu'en Items physiques ; les pièces détruites ne produisent rien.
+- Les pièces uniques ou nommées (**Griffe de machine intacte**, Crocs de Sawtooth, modules rares...) conservent leur statut de composant physique. Aucun appariement approximatif n'est appliqué.
+- Les anciennes cartes de butin encore en circulation sont interprétées avec cette règle, sans modifier automatiquement les inventaires existants.
+- Tests ajoutés : conversion d'une griffe ordinaire, conservation des pièces uniques, ouverture de carte par le client MJ pour un joueur. **Validation réelle Foundry v14 MJ + joueur nécessaire**.
+
 ## v0.6.13 — Récupération autonome sans demande d'approbation
 - Suppression de la notification trompeuse **« demande de récupération envoyée »** : elle signifiait un message socket technique et non une approbation MJ.
 - Suppression du dialogue **« Valider ce retrait avec le MJ »** en mode Stock marchand.

@@ -19,6 +19,7 @@ jobs:
         run: |
           node tests/container-token-stock.mjs
           node tests/player-autonomous-loot.mjs
+          node tests/player-carcass-claw-pm.mjs
           node tests/catalogue-link.mjs
       - name: Validate JavaScript and manifest
         run: |

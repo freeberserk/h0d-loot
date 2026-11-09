@@ -1,3 +1,15 @@
+## v0.6.14 — Carcasses joueur et PM des griffes ordinaires
+
+**Compte joueur :** cibler la carcasse avec **T**, puis cliquer sur **H0D Loot**. Le client MJ actif fournit directement une carte privée partagée au PJ et aux MJ. Aucun bouton d'approbation n'est demandé au MJ. Le joueur choisit ensuite **Prendre 1 / Prendre tout ce type / Tout récupérer** pour son PJ possédé. Les erreurs et les transferts effectivement terminés doivent être notifiés au joueur.
+
+**Prérequis :** un client MJ actif, un butin déjà généré par le MJ, et un personnage avec droits **Propriétaire** pour le joueur. Ces prérequis servent aux permissions Foundry, pas à une approbation manuelle.
+
+**Machines :** une griffe générique est du recyclage de métal : **1 griffe ordinaire donne 1 Plaque métallique (PM)**, et non un objet « Griffe ». Les cartes historiques encore actives sont relues selon cette règle, y compris au prélèvement. Les composants nommés uniques/rares restent des pièces physiques récupérables. Aucune modification des inventaires de PJ déjà existants n'est réalisée.
+
+**Test en situation :** ouvrir la carte avec un PJ, récupérer une ressource en présence du MJ, vérifier l'augmentation de son inventaire et la diminution du stock ; vérifier aussi un Scrapper à griffe générique et une pièce rare nommée. La réussite des tests automatisés ne garantit pas le résultat sur un serveur Foundry v14.
+
+---
+
 ## v0.6.13 — Prélèvement immédiat (sans demande au MJ)
 
 Sur un token Conteneur, le joueur cible le coffre (T), ouvre son stock avec H0D Loot et clique sur **Prendre 1** ou **Prendre tout ce type**. **Aucune demande d'approbation et aucune confirmation préalable** ne sont affichées. Le module notifie uniquement le transfert réellement accompli ou une erreur.
