@@ -692,6 +692,31 @@ function genericMachineResourceByName(name) {
   return ["Plaque","Fibre","Lentille","Cellule","Circuit","Fluide","Noyau"].includes(type) ? resource : null;
 }
 
+function isOrdinaryClawName(name) {
+  // Uniquement les griffes génériques. Ne jamais convertir les crocs nommés
+  // ni des pièces rares (ex. Griffe de machine intacte / module de chasse).
+  const n=norm(name);
+  return /^griffes?(?: (?:gauche|droite|avant|arriere|anterieure|posterieure|superieure|inferieure|[0-9]+))?$/.test(n);
+}
+
+// Relecture compatible des cartes déjà générées : aucun objet d'inventaire existant n'est modifié.
+function normalizeGenericClawLoot(loot) {
+  if (loot?.source?.type !== "machine") return loot;
+  const pm=genericMachineResourceByName("Plaques métalliques");
+  if (!pm) return loot; // Aucune ressource ne doit être créée si la bibliothèque est absente.
+  for (const entry of loot.items||[]) {
+    if(entry.kind!=="machine-piece" || !isOrdinaryClawName(entry.name))continue;
+    const originalName=entry.name;
+    entry.kind="resource";
+    entry.resourceId=pm.id;
+    entry.name=pm.name;
+    entry.img=pm.source?.img||"icons/svg/item-bag.svg";
+    entry.category="Ressource";
+    entry.note="Recyclage d'une griffe ordinaire ("+originalName+") : 1 PM";
+  }
+  return loot;
+}
+
 function fluidResourceFromText(text) {
   const n = norm(text);
   const mapping = [
@@ -819,6 +844,19 @@ function findRecoverableMachineParts(actor) {
 
     // Détruite = aucun composant physique exploitable dans cette règle.
     if(stateNorm === "detruit") continue;
+
+    // Une griffe ordinaire produit 1 PM ; les composants spéciaux restent des objets.
+    // Aucune récupération n'est accordée aux pièces détruites ou non détachées à 0 PV.
+    if(isOrdinaryClawName(item.name) && (stateNorm === "detache" || hp > 0)) {
+      const pm=genericMachineResourceByName("Plaques métalliques");
+      if(pm){
+        entries.push({
+          entryId:foundry.utils.randomID(),kind:"resource",resource:pm,quantity:1,
+          category:"Ressource",note:"Recyclage de "+item.name+" : 1 PM",label:item.name
+        });
+        continue;
+      }
+    }
 
     // Détachée : l'état physique de la pièce prime.
     if(stateNorm === "detache") {
