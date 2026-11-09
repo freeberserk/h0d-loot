@@ -134,6 +134,57 @@ async function requestContainerClaim(card,offerIndex,quantity) {
   game.socket.emit(SOCKET,data);
 }
 
+async function requestContainerTrade(card,offerIndex) {
+  if(!game.settings.get(NS,"playersCanClaim"))return;
+  const offer=card.offers.find(o=>o.index===offerIndex);
+  if(!offer||card.mode!=="Marchand"||card.valueBarterEnabled!==true)
+    return ui.notifications?.warn("H0D : ce vendeur n'autorise pas le troc automatique.");
+  if(offer.currency!=="jetons"||!Number.isSafeInteger(offer.price)||offer.price<0)
+    return ui.notifications?.warn("H0D : prix non compatible avec le troc automatique.");
+  const recipient=await helpers.chooseRecipientActor();
+  if(!recipient?.actor)return;
+  const ownedItems=Array.from(recipient.actor.items||[]).map(item=>({item,...barterItemDetails(item)}))
+    .filter(record=>record.id&&record.value>0&&record.quantity>0);
+  if(offer.price>0&&!ownedItems.length)
+    return ui.notifications?.warn("H0D : ce PJ n'a aucun objet ou ressource avec une valeur de troc utilisable.");
+  const rows=ownedItems.map((r,i)=>'<div class="form-group"><label>'+esc(r.name)+
+    ' (×'+r.quantity+', valeur '+r.value+'/unité)</label><input type="number" name="pay_'+i+
+    '" value="0" min="0" max="'+r.quantity+'" step="1"></div>').join("");
+  const form=await foundry.applications.api.DialogV2.input({
+    window:{title:"H0D — Troquer avec "+card.name,resizable:true},
+    content:'<p>Article : <strong>'+esc(offer.name)+'</strong> — <strong>'+offer.price+
+      ' jeton(s)</strong> de valeur. Choisis les ressources à remettre au vendeur.</p>'+
+      '<p><small>Valeurs lues dans les fiches Items (Valeur / troc ou Valeur unitaire). Aucun jeton fictif n\'est ajouté. Le troc n\'est validé que si sa valeur atteint le prix. Le surplus éventuel n\'est pas rendu.</small></p>'+
+      (rows||'<p>Aucune ressource nécessaire (prix configuré à zéro).</p>'),
+    ok:{label:"Vérifier le troc",icon:"fa-solid fa-right-left"}
+  });
+  if(!form)return;
+  const barterItems=ownedItems.flatMap((item,i)=>{
+    const value=Number(form["pay_"+i]??0);
+    return Number.isSafeInteger(value)&&value>0?[{itemId:item.item.id,quantity:value}]:[];
+  });
+  let quote;
+  try{quote=barterQuote(recipient.actor,barterItems,offer.price);}
+  catch(err){return ui.notifications?.warn("H0D : "+String(err.message||err));}
+  if(quote.overpay>0){
+    const accept=await foundry.applications.api.DialogV2.confirm({
+      window:{title:"H0D — Confirmer un troc avec surplus"},
+      content:"<p>Prix : <strong>"+offer.price+"</strong>. Valeur remise : <strong>"+
+        quote.total+"</strong>. Excédent non rendu : <strong>"+quote.overpay+
+        "</strong>.</p><p>Confirmer cet échange sans rendu de différence ?</p>"
+    });
+    if(!accept)return;
+  }
+  const data={type:"container-trade",userId:game.user.id,tokenUuid:card.tokenUuid,
+    actorId:recipient.actor.id,actorUuid:recipient.actor.uuid||null,
+    recipientTokenUuid:recipient.tokenUuid||null,offerIndex,
+    reference:offer.reference,offerName:offer.name,
+    barterItems,ackOverpay:quote.overpay>0};
+  if(helpers.isPrimaryGM())return processClaim(data);
+  if(!helpers.primaryGM())return ui.notifications?.warn("H0D : un MJ connecté est nécessaire pour exécuter le troc.");
+  game.socket.emit(SOCKET,data);
+}
+
 async function transferOffer(actor,offer,quantity) {
   // La quantité du stock compte les lots ; un lot peut contenir plusieurs unités (Senn : flèches ×5).
   const perPurchase=Number(offer.perPurchase);
