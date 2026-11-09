@@ -15,13 +15,17 @@ const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/[’']/g," ").replace(/[^a-zA-Z0-9]+/g," ").trim().toLowerCase();
 const pm={id:"pm",name:"Plaques métalliques",source:{img:"icons/svg/item-bag.svg",
   system:{props:{H0D_Ressource_Type:"Plaque"}}}};
-const genericMachineResourceByName=name=>norm(name)===norm(pm.name)?pm:null;
+const energy={id:"cell",name:"Cellule d’énergie faible",source:{img:"icons/svg/item-bag.svg",
+  system:{props:{H0D_Ressource_Type:"Cellule"}}}};
+const resourceByName=new Map([[norm(pm.name),pm],[norm(energy.name),energy]]);
+const genericMachineResourceByName=name=>resourceByName.get(norm(name))??null;
 const randomId=()=>"entry-new";
 const foundry={utils:{randomID:randomId,deepClone:obj=>structuredClone(obj)}};
 
 const clawFn=extract("function isOrdinaryClawName","function fluidResourceFromText",
-  "{isOrdinaryClawName,normalizeGenericClawLoot}",
-  ["norm","genericMachineResourceByName"],[norm,genericMachineResourceByName]);
+  "{isOrdinaryClawName,canonicalMachinePartResource,normalizeGenericClawLoot}",
+  ["norm","genericMachineResourceByName","resourceByName"],
+  [norm,genericMachineResourceByName,resourceByName]);
 assert.equal(clawFn.isOrdinaryClawName("Griffe"),true);
 assert.equal(clawFn.isOrdinaryClawName("Griffe gauche"),true);
 for(const rare of ["Griffe de machine intacte","Crocs de Sawtooth","Griffe radar ELYSIUM"])
@@ -36,13 +40,28 @@ assert.equal(migrated.items[0].kind,"resource");
 assert.equal(migrated.items[0].resourceId,"pm");
 assert.equal(migrated.items[0].name,"Plaques métalliques");
 assert.equal(migrated.items[1].kind,"machine-piece");
+assert.equal(clawFn.canonicalMachinePartResource({H0D_Composant_Loot:"Cellule d’énergie faible"},
+  "Batterie blanche instable").id,"cell");
+assert.equal(clawFn.canonicalMachinePartResource({H0D_Composant_Loot:"Plaques métalliques"},
+  "Griffe avant droite").id,"pm");
+assert.equal(clawFn.canonicalMachinePartResource({H0D_Composant_Loot:"Ressource inconnue"},
+  "Griffe avant droite"),null,"Champ explicite inconnu : ne jamais inventer une ressource.");
+const oldMachine={source:{type:"machine"},items:[
+  {kind:"machine-piece",name:"Batterie blanche instable",quantity:1,
+   partProps:{H0D_Composant_Loot:"Cellule d’énergie faible"}},
+  {kind:"machine-piece",name:"Griffe avant droite",quantity:1,
+   partProps:{H0D_Composant_Loot:"Plaques métalliques"}}
+]};
+const normalized=clawFn.normalizeGenericClawLoot(structuredClone(oldMachine));
+assert.deepEqual(normalized.items.map(x=>x.resourceId),["cell","pm"]);
+assert.equal(oldMachine.items[0].kind,"machine-piece","Le stock ancien reste intact.");
 assert.deepEqual(oldLoot.items[0].kind,"machine-piece","No mutation of stored old card");
 
 const funcs=extract("function findRecoverableMachineParts","function findDestroyedMachineParts",
   "findRecoverableMachineParts",
-  ["foundry","norm","isOrdinaryClawName","genericMachineResourceByName",
+  ["foundry","norm","canonicalMachinePartResource",
     "machinePartIsChassis","machinePieceLootEntry","damagedMachineResource"],
-  [foundry,norm,clawFn.isOrdinaryClawName,genericMachineResourceByName,
+  [foundry,norm,clawFn.canonicalMachinePartResource,
     ()=>false,(item)=>({kind:"machine-piece",name:item.name}),()=>pm]);
 const part=(name,state="Intact",hp=10)=>({
   id:"id-"+name,name,system:{template:"H0DCompMach00001",props:{
@@ -56,7 +75,19 @@ assert.equal(found[0].resource.name,"Plaques métalliques");
 assert.equal(found[0].quantity,1);
 assert.equal(found[1].kind,"machine-piece");
 assert.deepEqual(funcs({items:[part("Griffe","Detruit",0)]}),[]);
-assert.equal(funcs({items:[part("Griffe","Detache",0)]})[0].resource.name,"Plaques métalliques");
+const actual=(name,loot,state="Intact",hp=10)=>{
+  const it=part(name,state,hp);it.system.props.H0D_Composant_Loot=loot;return it;
+};
+const parts=funcs({items:[
+  actual("Griffe avant droite","Plaques métalliques"),
+  actual("Batterie blanche instable","Cellule d’énergie faible"),
+  actual("Batterie inconnue","Ressource non référencée")
+]});
+assert.deepEqual(parts.slice(0,2).map(x=>x.resource.id),["pm","cell"]);
+assert.equal(parts[2].kind,"machine-piece","Une référence invalide reste non convertie.");
+const deteriorated=funcs({items:[part("Griffe","Detache",0)]});
+assert.equal(deteriorated[0].kind,"machine-piece","Pièce détachée à 0 PV encore dégradée.");
+assert.equal(deteriorated[1].resource.name,"Plaques métalliques","Ressource secondaire conservée.");
 
 const player=slice("async function playerOpenTargetedLoot","async function generateControlled");
 assert.match(player,/type:"carcass-open"/,"Player requests carcass through socket");
@@ -70,8 +101,9 @@ assert.match(handler,/await getTokenLoot\(tokenDoc,\{migrate:true\}\)/,"GM uses 
 const surface=slice("async function surfaceTokenLoot","async function createLootMessage");
 assert.match(surface,/recipientUserId \|\| game\.user\.id/,"Recipient not confused with MJ");
 const claim=slice("async function transferEntryToActor","async function addMachinePartToActor");
-assert.match(claim,/isOrdinaryClawName\(entry\.name\)/,"Pre-existing old cards grant PM");
-assert.match(claim,/addResourceToActor\(actor, pm\.id, quantity\)/);
+assert.match(claim,/canonicalMachinePartResource\(entry\.partProps\|\|\{\},entry\.name\)/,
+  "Les cartes anciennes utilisent la référence exact de la pièce.");
+assert.match(claim,/addResourceToActor\(actor,mapped\.id,quantity\)/);
 
 // Ouverture réelle par le MJ, sans permission de lecture du flag Token sur le compte joueur.
 const received=[];

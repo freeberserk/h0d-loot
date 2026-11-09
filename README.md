@@ -1,3 +1,19 @@
+## v0.6.18 — Diagnostic direct et correspondances de ressources
+
+Le module lit **`H0D_Composant_Loot` sur chaque pièce machine**. Si ce champ correspond exactement à une ressource H0D, la récupération remet cette ressource (par exemple une *Griffe avant droite* donne une *Plaque métallique*, une *Batterie blanche instable* donne une *Cellule d'énergie faible*). Le module conserve les composants non résolus comme pièces physiques au lieu d'inventer des équivalences.
+
+**Accès de secours au butin côté joueur** : cibler le token avec **T**, puis exécuter depuis une macro script personnelle :
+```js
+await game.h0dLoot.open();
+```
+Ce chemin est indépendant du bouton Scene Controls, mais utilise le même canal MJ pour accéder au token et publier sa carte. L'API doit être disponible dès que le monde est prêt. Pour obtenir un diagnostic dans la console Foundry (F12) : `game.h0dLoot.diagnoseOpen()`. Retour : version réellement chargée, écouteurs disponibles, cible, MJ actif et disponibilité des ressources. Un raccourci « H0D Loot — ouvrir le butin ciblé » peut également être configuré depuis les contrôles de clavier Foundry.
+
+**Correction des pièces déjà reçues** : le MJ sélectionne **un seul token PJ** puis lance `await game.h0dLoot.convertExistingPieces();` depuis la console ou une macro script MJ. Une fenêtre présente la liste exacte avant toute modification ; les objets sans source claire restent intacts. Cela ne réécrit pas les inventaires à l'installation.
+
+Les tests GitHub ne prouvent pas le bon fonctionnement sur ton navigateur : après installation, comparer la macro et le bouton dans BAC-à-SABLES et communiquer le résultat de `diagnoseOpen()` si le problème persiste. Ne pas utiliser la fonctionnalité sur la campagne de production sans validation MJ + PJ.
+
+---
+
 ## v0.6.17 — Ouverture joueur du butin et des vendeurs
 
 Sur un compte joueur, **cibler un token machine, coffre ou PNJ vendeur avec T**, puis utiliser l'outil H0D Loot dans les contrôles Tokens. Le module n'exige plus de lire les flags de l'Actor sur le client joueur : il transmet l'identifiant du token au MJ connecté, qui publie la carte privée et confirme l'ouverture. **Aucun clic ni autorisation humaine du MJ** n'est demandé. Les commandes de prélèvement et de troc conservent leurs règles et contrôles existants.

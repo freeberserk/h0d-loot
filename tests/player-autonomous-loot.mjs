@@ -8,7 +8,7 @@ const slice=(start,end)=>{
 };
 const surface=slice("async function surfaceTokenLoot","async function createLootMessage");
 assert.match(surface,/game\.users\.filter\(u=>u\.isGM\)/,"Whispered player card also delivered to GM");
-const request=slice("async function requestClaim","function isPlayerCharacterActor");
+const request=slice("async function requestClaim","function salvageResourceForReceivedItem");
 assert.match(request,/game\.socket\.emit\(SOCKET, payload\)/,"Player triggers remote automatic claim");
 assert.doesNotMatch(request,/DialogV2\.confirm|approve|acceptClaim/,"Player claim has no MJ confirmation");
 const handler=slice("async function processClaimSerialized","function claimRecord");
