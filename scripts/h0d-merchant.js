@@ -10,7 +10,7 @@ function actorOf(value){const actor=typeof value==="string"?game.actors.get(valu
 function merchantState(actor){
  const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null,valueBarterEnabled:false});
  // Compatibilité : un ancien vendeur actif conserve le troc en ressources uniquement.
- state.paymentMode=PAYMENT_MODES.includes(state.paymentMode)?state.paymentMode:
+ state.paymentMode=["tokens-first","resources-only"].includes(state.paymentMode)?state.paymentMode:
    (state.valueBarterEnabled===true?"resources-only":null);
  state.valueBarterEnabled=state.paymentMode!==null;
  // Lecture des anciens stocks : quantité non définie = 1, sans réécriture immédiate.
