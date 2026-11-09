@@ -740,20 +740,31 @@ function isOrdinaryClawName(name) {
   return /^griffes?(?: (?:gauche|droite|avant|arriere|anterieure|posterieure|superieure|inferieure|[0-9]+))?$/.test(n);
 }
 
-// Relecture compatible des cartes déjà générées : aucun objet d'inventaire existant n'est modifié.
+// Le champ canonique de la pièce machine indique sa ressource récupérable.
+// Correspondance exacte uniquement ; un nom de pièce ("Batterie", "Griffe"...)
+// ne permet jamais à lui seul de choisir un type de cellule ni une rareté.
+function canonicalMachinePartResource(props={},partName="") {
+  const named=String(props?.H0D_Composant_Loot??"").trim();
+  if(named) return resourceByName.get(norm(named))??null;
+  // Compatibilité limitée avec les anciennes pièces sans champ Loot explicite.
+  if(isOrdinaryClawName(partName))return genericMachineResourceByName("Plaques métalliques");
+  return null;
+}
+
+// Relecture des cartes déjà générées : ne modifie pas l'Actor ni ses inventaires.
 function normalizeGenericClawLoot(loot) {
-  if (loot?.source?.type !== "machine") return loot;
-  const pm=genericMachineResourceByName("Plaques métalliques");
-  if (!pm) return loot; // Aucune ressource ne doit être créée si la bibliothèque est absente.
-  for (const entry of loot.items||[]) {
-    if(entry.kind!=="machine-piece" || !isOrdinaryClawName(entry.name))continue;
-    const originalName=entry.name;
+  if(loot?.source?.type!=="machine")return loot;
+  for(const entry of loot.items||[]){
+    if(entry.kind!=="machine-piece")continue;
+    const resource=canonicalMachinePartResource(entry.partProps||{},entry.name);
+    if(!resource)continue;
+    const previousName=entry.name;
     entry.kind="resource";
-    entry.resourceId=pm.id;
-    entry.name=pm.name;
-    entry.img=pm.source?.img||"icons/svg/item-bag.svg";
+    entry.resourceId=resource.id;
+    entry.name=resource.name;
+    entry.img=resource.source?.img||"icons/svg/item-bag.svg";
     entry.category="Ressource";
-    entry.note="Recyclage d'une griffe ordinaire ("+originalName+") : 1 PM";
+    entry.note="Recyclage de "+previousName+" : "+resource.name;
   }
   return loot;
 }
@@ -886,14 +897,15 @@ function findRecoverableMachineParts(actor) {
     // Détruite = aucun composant physique exploitable dans cette règle.
     if(stateNorm === "detruit") continue;
 
-    // Une griffe ordinaire produit 1 PM ; les composants spéciaux restent des objets.
-    // Aucune récupération n'est accordée aux pièces détruites ou non détachées à 0 PV.
-    if(isOrdinaryClawName(item.name) && (stateNorm === "detache" || hp > 0)) {
-      const pm=genericMachineResourceByName("Plaques métalliques");
-      if(pm){
+    // Le tableau de la machine tranche : H0D_Composant_Loot est la ressource
+    // à recevoir (Griffe -> PM, Batterie -> Cellule, etc.). Jamais de double loot.
+    // Les pièces à 0 PV ou détruites gardent leurs règles de détérioration.
+    if(hp>0){
+      const mapped=canonicalMachinePartResource(p,item.name);
+      if(mapped){
         entries.push({
-          entryId:foundry.utils.randomID(),kind:"resource",resource:pm,quantity:1,
-          note:"Recyclage de "+item.name+" : 1 PM",label:item.name
+          entryId:foundry.utils.randomID(),kind:"resource",resource:mapped,quantity:1,
+          note:"Recyclage de "+item.name+" : "+mapped.name,label:item.name
         });
         continue;
       }
@@ -1663,12 +1675,10 @@ async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
   if (entry.kind === "resource") return addResourceToActor(actor, entry.resourceId, quantity);
   if (entry.kind === "embedded") return addEmbeddedLootToActor(actor, entry, quantity, tokenDoc);
   if (entry.kind === "machine-piece") {
-    // Compatibilité des cartes déjà générées : une griffe générique vaut 1 PM.
-    if (isOrdinaryClawName(entry.name)) {
-      const pm=genericMachineResourceByName("Plaques métalliques");
-      if (!pm) throw new Error("Ressource canonique Plaques métalliques introuvable.");
-      return addResourceToActor(actor, pm.id, quantity);
-    }
+    // Le champ Loot du composant passe avant tout transfert d'Objet physique,
+    // même si la carte a été créée avec une ancienne version de H0D Loot.
+    const mapped=canonicalMachinePartResource(entry.partProps||{},entry.name);
+    if(mapped)return addResourceToActor(actor,mapped.id,quantity);
     return addMachinePartToActor(actor, entry, quantity);
   }
   throw new Error(`Type de butin non transférable : ${entry.kind}`);
@@ -1710,6 +1720,7 @@ async function addMachinePartToActor(actor,entry,quantity) {
     looted:true,
     machinePart:true,
     sourceItemId:entry.sourceItemId,
+    sourceLootName:String(original.H0D_Composant_Loot||""),
     sourceState:entry.sourceState || original.H0D_Composant_Etat || null,
     sourceHp:hp,
     sourceMaxHp:max,
