@@ -223,13 +223,14 @@ async function transferOffer(actor,offer,quantity) {
     if (existing) {
       const current = Math.max(0,Math.floor(Number(existing.system?.props?.[quantityField]) || 0));
       await existing.update({["system.props."+quantityField]:String(current+units)});
-      return;
+      return {rollback:async()=>existing.update({["system.props."+quantityField]:String(current)})};
     }
     source.system.props[quantityField] = String(units);
-    await actor.createEmbeddedDocuments("Item",[freshSource()]);
-    return;
+    const created=await actor.createEmbeddedDocuments("Item",[freshSource()]);
+    return {rollback:async()=>actor.deleteEmbeddedDocuments("Item",created.map(item=>item.id))};
   }
-  await actor.createEmbeddedDocuments("Item",Array.from({length:units},freshSource));
+  const created=await actor.createEmbeddedDocuments("Item",Array.from({length:units},freshSource));
+  return {rollback:async()=>actor.deleteEmbeddedDocuments("Item",created.map(item=>item.id))};
 }
 
 async function updateCards(tokenDoc) {
@@ -251,7 +252,10 @@ async function processClaim(data) {
   const tail=previous.then(()=>gate);
   pending.set(key,tail);
   await previous;
-  try { await claimSerialized(data); }
+  try {
+    if(data.type==="container-trade")await tradeSerialized(data);
+    else await claimSerialized(data);
+  }
   finally { release();if(pending.get(key)===tail)pending.delete(key); }
 }
 
@@ -325,7 +329,7 @@ export function registerContainerSupport(dependencies) {
   game.socket.on(SOCKET,data => {
     if (!data || typeof data!=="object") return;
     if (helpers.isPrimaryGM() && data.type==="container-open") void processOpen(data);
-    if (helpers.isPrimaryGM() && data.type==="container-claim") void processClaim(data);
+    if (helpers.isPrimaryGM() && (data.type==="container-claim"||data.type==="container-trade")) void processClaim(data);
     if (data.type==="container-result" && data.userId===game.user.id) {
       (data.ok?ui.notifications?.info:ui.notifications?.warn)?.call(ui.notifications,data.message);
     }
@@ -341,7 +345,10 @@ export function registerContainerSupport(dependencies) {
         const quantity=action==="take-one"?1:action==="take-all"?"all":"all-card";
         // Retrait autonome : aucune approbation du MJ ni confirmation de type "demande".
         // En mode marchand le paiement demeure externe et n'est pas débité automatiquement.
-        try { await requestContainerClaim(card,index,quantity); }
+        try {
+          if(action==="trade") await requestContainerTrade(card,index);
+          else await requestContainerClaim(card,index,quantity);
+        }
         catch (error) {
           console.error("H0D | récupération depuis un conteneur",error);
           ui.notifications?.warn("H0D : impossible de récupérer l'objet ("+(error?.message||error)+").");
