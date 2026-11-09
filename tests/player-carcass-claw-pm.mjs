@@ -73,6 +73,23 @@ const claim=slice("async function transferEntryToActor","async function addMachi
 assert.match(claim,/isOrdinaryClawName\(entry\.name\)/,"Pre-existing old cards grant PM");
 assert.match(claim,/addResourceToActor\(actor, pm\.id, quantity\)/);
 
+// Ouverture réelle par le MJ, sans permission de lecture du flag Token sur le compte joueur.
+const received=[];
+const openSource=slice("async function openCarcassForPlayer","// Sérialisation sur une même carcasse");
+const playerForOpen={id:"PLAYER",isGM:false,viewedScene:"SCENE"};
+const openCarcass=new Function("game","SOCKET","resolveTokenDocument","getTokenLoot",
+  "surfaceTokenLoot","console",openSource+";return openCarcassForPlayer;")(
+  {users:{get:id=>id==="PLAYER"?playerForOpen:null},
+    socket:{emit:(_channel,payload)=>received.push(payload)}},
+  "module.h0d-loot",async()=>({uuid:"Scene.SCENE.Token.T",hidden:false,parent:{id:"SCENE"}}),
+  async()=>({source:{type:"machine"},items:[{name:"Fibres synthétiques",quantity:2}]}),
+  async(_token,_loot,options)=>received.push(options),{error:()=>{}}
+);
+await openCarcass({userId:"PLAYER",tokenUuid:"Scene.SCENE.Token.T"});
+assert.equal(received.length,1);
+assert.equal(received[0].recipientUserId,"PLAYER");
+assert.equal(received[0].privateToUser,true);
+
 // Le MJ peut traiter une prise issue d'une carte privée qui ne figure pas dans son cache Chat.
 const claimSource=slice("async function processClaimSerialized","function claimRecord");
 const notification=[];
