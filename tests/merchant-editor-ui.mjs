@@ -53,7 +53,7 @@ const source=`const isContainerActor=()=>false;
 const linkedMerchantUuid=()=>"";
 const resolveMerchantStockOwner=actor=>({source:actor,owner:actor,linked:false});
 const openMerchantLinkDialog=async()=>null;
-`+merchantSource.replace(/^import[^\\n]*\\n/gm,"").replace(/^export /gm,"");
+`+merchantSource.replace(/^import[^\n]*\n/gm,"").replace(/^export /gm,"");
 const makeActor=(initial)=>{
  const actor={
   id:"ACTOR1",documentName:"Actor",name:"Coffre",flags:{"h0d-loot":{merchant:structuredClone(initial)}},
