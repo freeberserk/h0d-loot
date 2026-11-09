@@ -1,3 +1,13 @@
+## v0.6.28 — Fenêtre d'association Coffre ↔ Marchand
+
+Correction de la fenêtre « Associer un marchand » sous Foundry VTT 14. Dans v0.6.27, le clic « Configurer la liaison » affichait la première confirmation puis échouait sur `Error: config.content element must have no attributes`. Le dialogue d'association est maintenant construit avec un conteneur de contenu sans attribut et un panneau interne pour les styles.
+
+Pour associer le coffre au marchand : en MJ, activer d'abord le rôle Marchand du PNJ et enregistrer. Ensuite sélectionner le **coffre**, ouvrir H0D Commerce → Configuration → Configurer la liaison, confirmer la fermeture de l'éditeur, puis choisir le PNJ dans la seconde fenêtre. Ne cocher le transfert du stock historique du coffre que lorsque le PNJ cible ne possède aucune offre ni aucun historique de troc et que le transfert est souhaité.
+
+La correction ne modifie aucun stock ni lien automatiquement. Tester la liaison et le troc réel dans BAC-à-SABLES avant toute utilisation en production.
+
+---
+
 ## v0.6.27 — Livraison depuis H0D Catalogue uniquement
 
 - Le marchand consulte **directement** H0D Catalogue pour les catégories et les références d'Items. Aucune liste de secours depuis Equipment Builder si le Catalogue est indisponible.
