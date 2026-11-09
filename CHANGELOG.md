@@ -1,3 +1,11 @@
+## v0.6.17 — Réparer le clic joueur sur machines, coffres et vendeurs
+- Le bouton Scene Controls exécute désormais son ouverture via un wrapper capturant aussi les erreurs asynchrones. Toute exception devient une notification visible et une trace console.
+- Le client joueur envoie **seulement l'UUID du token ciblé**, sans lire lui-même les flags du coffre ou de l'Actor source. Le client MJ actif décide du type réel (machine, coffre ou vendeur) et publie le butin ou stock approprié.
+- Chaque ouverture reçoit un identifiant et un accusé de résultat : un succès n'est affiché qu'après publication effective d'une carte privée ; un échec renvoie le motif. En l'absence de toute réponse du client MJ après 12 secondes, un avertissement diagnostic est montré.
+- Un coffre ou vendeur inaccessible ne reste plus silencieux : l'ouverture serveur retourne un état explicite.
+- Aucun changement des mécanismes de génération, stock, prélèvement, troc, tarifs, inventaires, permissions et sauvegardes.
+- Tests ajoutés : joueur sans permission de lecture Actor, ouverture machine/coffre, réponse MJ, absence de cible, absence de réponse et non-régression des anciennes cartes. **Validation dans Foundry v14 avec comptes MJ et PJ reste requise.**
+
 ## v0.6.16 — Publication du correctif ordre des outils
 
 - Version dédiée au correctif des ordres d'affichage distincts et au routage marchand sur client MJ.
