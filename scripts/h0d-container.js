@@ -315,6 +315,92 @@ async function claimSerialized(data) {
   }
 }
 
+async function tradeSerialized(data) {
+  const respond=(ok,message)=>{
+    if(data.userId===game.user.id)(ok?ui.notifications?.info:ui.notifications?.warn)?.call(ui.notifications,message);
+    else game.socket.emit(SOCKET,{type:"container-result",userId:data.userId,ok,message});
+  };
+  let rollbackWarning="";
+  try {
+    if(!game.settings.get(NS,"playersCanClaim"))return respond(false,"H0D : troc côté joueur désactivé.");
+    const user=game.users.get(data.userId);
+    if(!user)return respond(false,"H0D : joueur introuvable.");
+    const tokenDoc=await helpers.resolveTokenDocument(data.tokenUuid);
+    if(!tokenDoc||(!user.isGM&&(tokenDoc.hidden||(user.viewedScene&&tokenDoc.parent?.id!==user.viewedScene))))
+      return respond(false,"H0D : vendeur inaccessible sur cette scène.");
+    const {actor:vendor,mode,state}=readContainer(tokenDoc);
+    if(mode!=="Marchand"||!state.enabled||state.valueBarterEnabled!==true)
+      return respond(false,"H0D : ce vendeur n'accepte pas le troc automatique.");
+    const index=data.offerIndex;
+    if(!Number.isSafeInteger(index)||index<0||index>=state.offers.length)
+      return respond(false,"H0D : cette offre n'existe plus.");
+    const offer=state.offers[index];
+    if(offer.reference!==data.reference||offer.name!==data.offerName)
+      return respond(false,"H0D : offre modifiée. Rouvre le vendeur.");
+    if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)
+      return respond(false,"H0D : article épuisé.");
+    if(offer.currency!=="jetons"||!Number.isSafeInteger(offer.price)||offer.price<0)
+      return respond(false,"H0D : prix non défini ou hors mode troc.");
+    const actor=await helpers.resolveRecipientActor(data,user);
+    if(!actor||(!user.isGM&&!helpers.actorOwnedByUser(actor,user)))
+      return respond(false,"H0D : ce PJ ne vous appartient pas.");
+    if(actor.uuid===vendor.uuid||actor.id===vendor.id)
+      return respond(false,"H0D : le vendeur ne peut pas être son propre acheteur.");
+    const quote=barterQuote(actor,data.barterItems||[],offer.price);
+    if(quote.overpay>0&&data.ackOverpay!==true)
+      return respond(false,"H0D : confirme l'excédent avant de troquer.");
+    const paid=[];
+    let delivery=null;
+    try {
+      for(const line of quote.lines) {
+        const item=line.item;
+        const key=line.details.quantityField;
+        const previous=item.system.props[key];
+        const current=Number(previous);
+        await item.update({["system.props."+key]:String(current-line.quantity)});
+        paid.push({item,key,previous});
+      }
+      delivery=await transferOffer(actor,offer,1);
+      state.offers[index].quantity-=1;
+      await merchantAPI.setMerchantOffers(vendor,state.offers);
+    } catch(error) {
+      // Restauration compensatoire : le troc ne doit jamais être annoncé comme réussi
+      // si le prélèvement ou l'écriture du stock échoue.
+      const problems=[];
+      if(delivery?.rollback)try{await delivery.rollback();}catch(err){problems.push("retrait article : "+String(err));}
+      for(const row of paid.reverse())try{
+        await row.item.update({["system.props."+row.key]:row.previous});
+      }catch(err){problems.push("remboursement "+row.item.name+" : "+String(err));}
+      if(problems.length)rollbackWarning=" Restauration partielle : intervention MJ nécessaire ("+problems.join("; ")+").";
+      throw error;
+    } finally {
+      await updateCards(tokenDoc);
+    }
+    // Les ressources remises sont consommées du PJ et consignées sur le vendeur
+    // (pas de revente automatique, car les sources ne sont pas toujours des articles du Catalogue).
+    try {
+      const receiptState=merchantAPI.getMerchant(vendor);
+      const history=Array.isArray(receiptState.barterReceipts)?receiptState.barterReceipts:[];
+      receiptState.barterReceipts=[...history,{
+        at:Date.now(),buyerId:actor.id,buyerName:actor.name,playerId:user.id,
+        reference:offer.reference,offerName:offer.name,
+        price:offer.price,paidValue:quote.total,
+        paid:quote.lines.map(line=>({name:line.details.name,quantity:line.quantity,unitValue:line.details.value}))
+      }].slice(-100);
+      await vendor.setFlag(NS,"merchant",receiptState);
+    }catch(err){console.warn("H0D | troc terminé, mais journal du marchand non enregistré",err);}
+    // Après confirmation, supprimer les piles de valeur totalement consommées.
+    const emptied=quote.lines.filter(line=>line.quantity===line.details.quantity).map(line=>line.item.id);
+    if(emptied.length)try{await actor.deleteEmbeddedDocuments("Item",emptied);}
+    catch(err){console.warn("H0D | piles de troc vides conservées",err);}
+    respond(true,"H0D : "+offer.name+" obtenu par troc sur "+vendor.name+
+      " ("+quote.total+" valeur remise pour "+offer.price+" jetons)."+(quote.overpay?" Sans rendu de "+quote.overpay+".":""));
+  } catch(error) {
+    console.error("H0D | transaction commerciale impossible",error);
+    respond(false,"H0D : troc impossible ("+String(error?.message||error)+")."+rollbackWarning);
+  }
+}
+
 async function processOpen(data) {
   const user=game.users.get(data.userId);
   if (!user) return;
