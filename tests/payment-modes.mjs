@@ -24,10 +24,10 @@ const plan=recognitionTokenPayment(investor,3);
 assert.equal(plan.used,2);assert.equal(plan.remaining,1);
 assert.equal(barterQuote(investor,[{itemId:"PM",quantity:1}],plan.remaining).total,1);
 assert.throws(()=>barterQuote(investor,[{itemId:token.id,quantity:1}],1),/indisponible/);
-const legacyMerchant=new Function("foundry","game",merchantSource.replace(/^import .*\n/gm,"").replace(/^export /gm,"")+
+const legacyMerchant=new Function("foundry","game","resolveMerchantStockOwner",merchantSource.replace(/^import .*\n/gm,"").replace(/^export /gm,"")+
   ";return getMerchant;")({utils:{deepClone:clone}},{
   modules:new Map(),user:{isGM:true}
-});
+},actor=>({source:actor,owner:actor,linked:false}));
 const legacyActor=state=>({documentName:"Actor",getFlag:()=>state});
 assert.equal(legacyMerchant(legacyActor({enabled:true,valueBarterEnabled:true,offers:[]})).paymentMode,
  "resources-only","Les anciens marchands troquant gardent le mode ressources.");
