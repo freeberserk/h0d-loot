@@ -220,7 +220,7 @@ Hooks.once("ready", async () => {
     console.error("H0D Loot | données facultatives à initialiser",err);
     ui.notifications?.warn("H0D Loot : données à vérifier ; le canal MJ-joueur reste actif.");
   }
-  console.log("H0D Loot | v0.6.18 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
+  console.log("H0D Loot | v0.6.19 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);

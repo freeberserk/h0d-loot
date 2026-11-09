@@ -1,3 +1,11 @@
+## v0.6.19 — Autoriser le canal socket entre PJ et MJ (blocage avéré)
+- **Cause confirmée** : le manifeste `module.json` ne demandait pas le namespace de socket au serveur. Les clients MJ et PJ étaient bien connectés et les listeners présents, mais les requêtes `module.h0d-loot` n'étaient pas relayées.
+- Ajout de `"socket": true` au manifeste Foundry VTT 14. Il autorise les messages sur `module.h0d-loot` utilisés pour consulter carcasses, coffres et vendeurs, prélever des objets et troquer.
+- Test de régression en CI : le manifeste doit déclarer ce socket, cohérent avec les émissions et réceptions des scripts.
+- Aucun changement du stock, des objets, des conversions de ressources ni des règles commerciales.
+- **Important : après mise à jour, quitter le monde puis le relancer** afin que Foundry recharge la déclaration serveur du module. Recharger les navigateurs MJ et joueur et vérifier la réception du message sur le compte MJ.
+- La réussite GitHub ne remplace pas un test réel de transmission socket sur Foundry v14.
+
 ## v0.6.18 — Recyclage canonique des pièces et diagnostic joueur
 - **Conversion fondée sur les fiches machines** : les pièces récupérables utilisent en priorité `H0D_Composant_Loot` (nom exact de ressource présente dans la bibliothèque) ; ne plus décider uniquement d'après « Griffe » ou « Batterie ». Exemples confirmés dans BAC-à-SABLES : Griffe avant droite → Plaques métalliques ; Batterie blanche instable → Cellule d’énergie faible.
 - Les anciennes cartes contenant encore `partProps.H0D_Composant_Loot` sont relues avec le même mapping sans modifier automatiquement les stocks existants. Les pièces sans correspondance univoque restent physiques ; les pièces détruites et à zéro PV conservent les règles de butin.
