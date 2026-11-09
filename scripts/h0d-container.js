@@ -2,6 +2,7 @@ import {merchantAPI} from "./h0d-merchant.js";
 import {barterQuote,recognitionTokenPayment} from "./h0d-trade.js";
 import {openValueTradeDialog} from "./h0d-trade-dialog.js";
 import {resolveMerchantStockOwner} from "./h0d-merchant-link.js";
+import {catalogueApi} from "./h0d-catalogue-link.js";
 
 // H0D Loot — stock des conteneurs, directement sur les tokens (sans tuile).
 // L'Actor conserve le stock canonique ; les cartes de chat n'en sont que des vues filtrées.
@@ -41,8 +42,7 @@ function readContainer(tokenDoc) {
 
 function stockCard(tokenDoc) {
   const {actor,mode,state,linked} = readContainer(tokenDoc);
-  const builder = game.h0dEquipmentBuilder;
-  const catalogue = game.h0dCatalogue;
+  const catalogue = catalogueApi(game);
   return {
     tokenUuid:tokenDoc.uuid,
     merchantActorUuid:actor.uuid,
@@ -51,7 +51,7 @@ function stockCard(tokenDoc) {
     valueBarterEnabled:mode==="Marchand"&&state.valueBarterEnabled===true,
     paymentMode:mode==="Marchand"?state.paymentMode:null,
     offers:(state.offers || []).map((offer,index) => {
-      const def = builder?.getDefinition?.(offer.reference) || catalogue?.getDefinition?.(offer.reference) || null;
+      const def = catalogue?.getDefinition?.(offer.reference) ?? null;
       const kind = String(def?.kind || "").toLowerCase();
       const category = {weapon:"Armes",armor:"Armures",object:"Objets",resource:"Ressources",ammo:"Munitions",ammunition:"Munitions"}[kind] || "Autres";
       const numericQuantity = Number(offer.quantity);
@@ -181,14 +181,16 @@ async function transferOffer(actor,offer,quantity) {
      !Number.isSafeInteger(quantity*perPurchase)) throw new Error("Conditionnement ou quantité invalide.");
   const units=quantity*perPurchase;
   // Seule une référence exacte permet une création ; ne jamais deviner un Item.
-  const builder = game.h0dEquipmentBuilder;
-  if (!offer.reference || !builder?.getDefinition || !builder?.buildItem)
-    throw new Error("Référence indisponible : H0D Equipment Builder est requis.");
-  const definition = builder.getDefinition(offer.reference);
-  if (!definition) throw new Error("Référence introuvable dans le Catalogue/Builder : "+offer.reference);
-  if (definition.catalogue?.pret_pour_builder === false)
+  const catalogue=catalogueApi(game);
+  if(!catalogue)throw new Error("H0D Catalogue doit être activé et prêt avant toute livraison marchande.");
+  const definition=catalogue.getDefinition(offer.reference);
+  if(!definition)throw new Error("Référence absente de H0D Catalogue : "+offer.reference);
+  if(definition.catalogue?.pret_pour_builder===false)
     throw new Error("Cette référence n'est pas prête pour la création d'Item : "+offer.reference);
-  const original = await builder.buildItem(offer.reference,{mode:"skip"});
+  const builder=game.h0dEquipmentBuilder;
+  if(!builder?.buildItem)throw new Error("H0D Equipment Builder est requis pour la livraison.");
+  // Update remet le prototype du monde en conformité, sans toucher aux inventaires PJ ni au stock marchand.
+  const original=await builder.buildItem(offer.reference,{mode:"update"});
   if (!original) throw new Error("Impossible de générer l'Item canonique : "+offer.reference);
   const source = helpers.prepareLootedItemSource(original.toObject());
   // L'intitulé commercial d'un lot (ex. ×5 chez Senn) reste visible dans l'inventaire,
