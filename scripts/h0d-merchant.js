@@ -1,5 +1,6 @@
 import {merchantCatalogueDefinitions} from "./h0d-catalogue-link.js";
 import {merchantEditorContent,bindMerchantEditor} from "./h0d-merchant-editor.js";
+import {isContainerActor,linkedMerchantUuid,resolveMerchantStockOwner,openMerchantLinkDialog} from "./h0d-merchant-link.js";
 // H0D Commerce — Stock marchand optionnel, indépendant des Items embarqués.
 // Aucun achat ni prélèvement automatique dans cette première étape.
 const NS="h0d-loot", FLAG="merchant";
@@ -8,6 +9,7 @@ const clone=v=>foundry.utils.deepClone(v);
 const esc=v=>foundry.utils.escapeHTML(String(v??""));
 function ensureGM(){if(!game.user?.isGM)throw new Error("H0D Commerce : réservé au MJ.");}
 function actorOf(value){const actor=typeof value==="string"?game.actors.get(value):value;if(!actor||actor.documentName!=="Actor")throw new Error("Actor marchand introuvable.");return actor;}
+function merchantOf(value){return resolveMerchantStockOwner(actorOf(value)).owner;}
 function merchantState(actor){
  const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null,valueBarterEnabled:false});
  // Compatibilité : un ancien vendeur actif conserve le troc en ressources uniquement.
@@ -43,19 +45,19 @@ function normalizeOffer(o){
  notes:String(o.notes||"")};
 }
 export async function setMerchantRole(actorValue,enabled){
- ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
+ ensureGM();const actor=merchantOf(actorValue),state=merchantState(actor);
  state.enabled=!!enabled;await actor.setFlag(NS,FLAG,state);return clone(state);
 }
-export function getMerchant(actorValue){return merchantState(actorOf(actorValue));}
+export function getMerchant(actorValue){return merchantState(merchantOf(actorValue));}
 export async function setValueBarterEnabled(actorValue,enabled){
- ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
+ ensureGM();const actor=merchantOf(actorValue),state=merchantState(actor);
  state.paymentMode=enabled===true?(state.paymentMode||"resources-only"):null;
  state.valueBarterEnabled=enabled===true;await actor.setFlag(NS,FLAG,state);return clone(state);
 }
 export async function setPaymentMode(actorValue,mode){
  ensureGM();
  if(!PAYMENT_MODES.includes(mode))throw new Error("Mode de paiement marchand invalide.");
- const actor=actorOf(actorValue),state=merchantState(actor);
+ const actor=merchantOf(actorValue),state=merchantState(actor);
  state.paymentMode=mode;state.valueBarterEnabled=true;
  await actor.setFlag(NS,FLAG,state);return clone(state);
 }
@@ -67,7 +69,7 @@ export async function assignMerchantBuyer(actorValue,buyerValue){
 }
 export async function setMerchantOffers(actorValue,offers){
  ensureGM();if(!Array.isArray(offers))throw new Error("Liste d'offres attendue.");
- const actor=actorOf(actorValue),state=merchantState(actor);
+ const actor=merchantOf(actorValue),state=merchantState(actor);
  state.offers=offers.map(normalizeOffer);await actor.setFlag(NS,FLAG,state);return clone(state);
 }
 export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03"){
@@ -83,7 +85,7 @@ export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03
    perPurchase:Number.isSafeInteger(o.quantite_par_achat)&&o.quantite_par_achat>0?o.quantite_par_achat:1,
    price:typeof o.prix_jetons==="number"?o.prix_jetons:null,currency:"jetons",notes:o.notes||""
  }));
- const actor=actorOf(actorValue),state=merchantState(actor);
+ const actor=merchantOf(actorValue),state=merchantState(actor);
  state.enabled=true;state.offers=offers;state.stockKey=key;
  // Import volontaire de Senn : jetons prioritaires ; aucune migration implicite des anciens stocks.
  state.paymentMode="tokens-first";state.valueBarterEnabled=true;
@@ -114,7 +116,18 @@ function readOffers(form,allOffers){
 export async function openMerchant(actorValue){
  ensureGM();
  if(game.modules?.get("h0d-catalogue")?.active)await game.h0dCatalogue?.whenReady?.();
- const actor=actorOf(actorValue),state=merchantState(actor);
+ const source=actorOf(actorValue);
+ let association;
+ try{association=resolveMerchantStockOwner(source);}
+ catch(error){
+   // Association brisée : pas de réactivation du stock local, mais le MJ doit
+   // pouvoir ouvrir une fenêtre pour corriger le lien.
+   if(!isContainerActor(source))throw error;
+   ui.notifications.warn("H0D : "+String(error?.message||error));
+   return openMerchantLinkDialog(source);
+ }
+ const actor=association.owner,linkedUuidAtOpen=linkedMerchantUuid(source);
+ const state=merchantState(actor);
  const selector=merchantCatalogueDefinitions(game);
  const builderDefinitions=selector.definitions.sort((a,b)=>a.name.localeCompare(b.name,"fr"));
  const categoryLabels={weapon:"Armes",armor:"Armures",ammo:"Munitions",ammunition:"Munitions",object:"Objets",resource:"Ressources"};
@@ -134,8 +147,12 @@ export async function openMerchant(actorValue){
  // Un élément DOM fournit un contenu de confiance à Foundry v14 :
  // les data-attributs interactifs sont conservés lors du rendu du DialogV2.
  const content=document.createElement("div");
- content.innerHTML=merchantEditorContent({actorName:actor.name,state,catalogueSource:selector.source,
-   builderOptions,builderAvailable:builderDefinitions.length>0});
+ content.innerHTML=merchantEditorContent({
+   actorName:association.linked?source.name+" — stock de "+actor.name:actor.name,
+   state,catalogueSource:selector.source,
+   builderOptions,builderAvailable:builderDefinitions.length>0,
+   isContainer:isContainerActor(source),linkedMerchantName:association.linked?actor.name:null
+ });
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
   position:{width:925,height:715},
@@ -144,6 +161,20 @@ export async function openMerchant(actorValue){
    dialog.element?.classList.add("h0d-merchant-window");
    bindMerchantEditor(dialog,{state,definitions:builderDefinitions,drafts,
     notify:message=>ui.notifications.warn("H0D : "+message),
+    openMerchantSheet:()=>actor.sheet?.render?.(true),
+    configureLink:async currentDialog=>{
+      const accept=await foundry.applications.api.DialogV2.confirm({
+        window:{title:"H0D — Changer de marchand"},
+        content:"<p>La liaison possède son propre enregistrement. Les modifications non enregistrées dans la fenêtre du stock seront perdues si tu continues.</p>"
+      });
+      if(!accept)return;
+      await currentDialog.close();
+      const changed=await openMerchantLinkDialog(source);
+      if(changed?.changed){
+        ui.notifications.info("H0D : association mise à jour. Le stock reste sur son Actor propriétaire.");
+        await openMerchant(source);
+      }
+    },
     importSenn:async currentDialog=>{
      const yes=await foundry.applications.api.DialogV2.confirm({
       window:{title:"Remplacer entièrement le stock ?"},
@@ -173,6 +204,10 @@ export async function openMerchant(actorValue){
  const mode=String(choice.paymentMode||"resources-only");
  if(!PAYMENT_MODES.includes(mode))throw new Error("Mode de paiement marchand invalide.");
  const current=merchantState(actor);
+ if(linkedMerchantUuid(source)!==linkedUuidAtOpen){
+   ui.notifications.warn("H0D : l'association du coffre a changé pendant l'édition. Rouvre le marchand.");
+   return null;
+ }
  // Un PJ peut acheter durant l'édition. Ne jamais réintroduire dans le stock
  // des lots vendus pendant l'ouverture de cette fenêtre.
  if(JSON.stringify(current.offers)!==JSON.stringify(state.offers)){
@@ -194,7 +229,7 @@ export async function openMerchant(actorValue){
 // Aucun accès aux données de l'Actor marchand n'est accordé aux joueurs.
 export async function publishMerchant(actorValue){
  ensureGM();
- const actor=actorOf(actorValue),state=merchantState(actor);
+ const actor=merchantOf(actorValue),state=merchantState(actor);
  if(!state.enabled)throw new Error("Active le rôle Marchand avant de publier.");
  const rows=state.offers.map(o=>`<tr><td>${esc(o.name)}</td><td>${o.quantity===null?"Non précisée":esc(o.quantity)}</td><td>${o.price===null?"À définir":esc(o.price+" "+o.currency)}</td></tr>`).join("");
  const content=`<section class="h0d-merchant-public"><h2>Étal de ${esc(actor.name)}</h2>
@@ -208,7 +243,8 @@ export async function publishMerchant(actorValue){
 export function installMerchantSheetButton(app,html){
  if(!game.user?.isGM)return;
  const actor=app?.actor||app?.document;
- if(actor?.documentName!=="Actor"||!merchantState(actor).enabled)return;
+ if(actor?.documentName!=="Actor")return;
+ if(!linkedMerchantUuid(actor)&&!merchantState(actor).enabled)return;
  const root=app?.element instanceof HTMLElement?app.element:(typeof HTMLElement!=="undefined"&&html instanceof HTMLElement?html:html?.[0]);
  if(!root||root.querySelector("[data-h0d-merchant-sheet]"))return;
  const header=root.querySelector(".window-header");
@@ -220,4 +256,4 @@ export function installMerchantSheetButton(app,html){
  button.addEventListener("click",()=>openMerchant(actor).catch(e=>ui.notifications.error(e.message)));
  header.insertBefore(button,header.querySelector(".window-close")||null);
 }
-export const merchantAPI={getMerchant,setMerchantRole,setValueBarterEnabled,setPaymentMode,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant};
+export const merchantAPI={getMerchant,setMerchantRole,setValueBarterEnabled,setPaymentMode,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant,openMerchantLinkDialog};
