@@ -4,7 +4,7 @@ const [trading,container,main,merchant]=await Promise.all([
  "scripts/h0d-trade.js","scripts/h0d-container.js","scripts/h0d-loot.js","scripts/h0d-merchant.js"
 ].map(async path=>readFile(new URL("../"+path,import.meta.url),"utf8")));
 const source=trading.replace(/^export /gm,"");
-const {barterItemDetails,barterQuote}=new Function(source+";return {barterItemDetails,barterQuote};")();
+const {barterItemDetails,barterQuote,recognitionTokenPayment}=new Function(source+";return {barterItemDetails,barterQuote,recognitionTokenPayment};")();
 const makeItem=(id,value=1,quantity=3,kind="resource")=>{
  const template=kind==="resource"?"H0DResTpl0000001":"H0DObjTpl0000001";
  const k=kind==="resource"?"H0D_Ressource_Valeur_Unitaire":"H0D_Objet_Valeur";
@@ -58,10 +58,10 @@ const makeEnv=(options={})=>{
  };
  const helpers={resolveTokenDocument:async()=>token,resolveRecipientActor:async()=>buyer,
    actorOwnedByUser:()=>true};
- const trade=new Function("game","ui","helpers","readContainer","barterQuote","transferOffer",
+ const trade=new Function("game","ui","helpers","readContainer","barterQuote","recognitionTokenPayment","acceptsTradePrice","transferOffer",
   "merchantAPI","updateCards","NS","SOCKET","console",tradeSrc+"\nreturn tradeSerialized;")(
   game,{notifications:{}},helpers,()=>({actor:seller,mode:"Marchand",state:structuredClone(seller.state)}),
-  barterQuote,async()=>{
+  barterQuote,recognitionTokenPayment,(mode,currency)=>mode==="tokens-first"?currency==="jetons":mode==="resources-only"&&["jetons","ressources"].includes(currency),async()=>{
     if(options.failDelivery)throw Error("Item generation failed");
     sold++;
     return {rollback:async()=>{back++;sold--;}};},
