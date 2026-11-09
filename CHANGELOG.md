@@ -1,3 +1,11 @@
+## v0.6.20 — Interface de troc dynamique et « Offre au plus juste »
+- Remplace « Vérifier le troc » par une fenêtre interactive unique présentant le lot, son prix, l'inventaire valorisé, la valeur par unité, les quantités détenues et la valeur cumulée. Chaque changement de quantité actualise instantanément le total, le restant à payer et l'éventuel surplus.
+- Bouton **« Offre au plus juste »** : cherche une combinaison **à surplus minimal**, puis **avec le moins d'unités offertes** à égalité, en respectant le stock réel. Algorithme de quantités bornées, sans écriture des Items. Si un inventaire dépasse la capacité de calcul garantie, l'assistance est désactivée plutôt que de proposer un résultat approximatif.
+- Confirmation du troc impossible tant que l'offre est insuffisante, que la quantité dépasse l'inventaire ou que le surplus n'est pas expressément accepté. En cas de surplus, l'accord du joueur figure dans la même fenêtre : pas de deuxième dialogue.
+- Le client MJ continue de **recalculer** valeur, stock, droits et quantités. Il refuse maintenant aussi la transaction si le prix marchand a changé depuis l'ouverture du dialogue. Pas de validation humaine du MJ.
+- Les règles économiques demeurent inchangées : équivalence par valeur optionnelle pour chaque vendeur, pas de rendu de monnaie, aucune valeur inventée pour les Items non cotés et les objets non éligibles.
+- Interface CSS responsive et tests automatisés incluant recherche optimale contre oracle exhaustif, interactions de la fenêtre, paiement insuffisant, surplus consenti et quantités invalides. Vérification réelle sous Foundry VTT 14 recommandée sur BAC-à-SABLES.
+
 ## v0.6.19 — Autoriser le canal socket entre PJ et MJ (blocage avéré)
 - **Cause confirmée** : le manifeste `module.json` ne demandait pas le namespace de socket au serveur. Les clients MJ et PJ étaient bien connectés et les listeners présents, mais les requêtes `module.h0d-loot` n'étaient pas relayées.
 - Ajout de `"socket": true` au manifeste Foundry VTT 14. Il autorise les messages sur `module.h0d-loot` utilisés pour consulter carcasses, coffres et vendeurs, prélever des objets et troquer.
