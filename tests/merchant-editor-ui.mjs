@@ -69,7 +69,7 @@ const game={user:{isGM:true},actors:{get:()=>actor,contents:[actor]},
 const foundry={
  utils:{deepClone:v=>structuredClone(v),escapeHTML:esc},
  applications:{api:{DialogV2:{
-  input:async opts=>{dialogOptions.push(opts);return typeof response==="function"?response():response;},
+  input:async opts=>{dialogOptions.push(opts);opts.render?.(null,{element:{classList:{add(){}},querySelector:()=>null}});return typeof response==="function"?response():response;},
   confirm:async()=>false
  }}}
 };
@@ -102,7 +102,8 @@ assert.equal(actor.updates[0].offers[1].price,null,"Prix indéfini ≠ prix zér
 assert.equal(actor.updates[0].buyerId,"LEGACY-PJ","L'ancien lien est conservé.");
 assert.deepEqual(actor.updates[0].barterReceipts,[{price:5}]);
 assert.equal(actor.updates[0].paymentMode,"tokens-first");
-assert.equal(dialogOptions[0].content.innerHTML,markup);
+assert.match(dialogOptions[0].content.innerHTML,/Stock et marchandises/);
+assert.match(dialogOptions[0].content.innerHTML,/Fumigène artisanal/);
 assert.equal(dialogOptions[0].position.width,925);
 assert.equal(dialogOptions[0].ok.label,"Enregistrer");
 
@@ -113,7 +114,9 @@ const merchant2=new Function("foundry","game","merchantCatalogueDefinitions",
  "merchantEditorContent","bindMerchantEditor","ui","document","ChatMessage",
  source+";return {openMerchant};")(
  foundry,{...game,actors:{get:()=>next,contents:[next]}},
- ()=>({source:"H0D Catalogue",definitions:[]}),editor.merchantEditorContent,()=>{},ui,document,{}
+ ()=>({source:"H0D Catalogue",definitions:[]}),editor.merchantEditorContent,
+ (_dialog,{drafts})=>drafts.push({reference:"fumigene",name:"Nouvelle marchandise",quantity:1,perPurchase:1,price:2,currency:"jetons",notes:"Ajout manuel"}),
+ ui,document,{}
 );
 response=payload({
  name_2:"Nouvelle marchandise",quantity_2:"1",price_2:"2",
@@ -122,9 +125,12 @@ response=payload({
 });
 await merchant2.openMerchant(next);
 assert.equal(next.updates.length,1);
-assert.equal(next.updates[0].offers.length,1,
- "Les nouvelles lignes doivent exister dans le tableau de drafts pour être enregistrées.");
-// Le test de l'ajout réel est traité au niveau de bindMerchantEditor, pas par ce mock.
+assert.equal(next.updates[0].offers.length,2,
+ "Une nouvelle ligne ajoutée avant l'enregistrement doit être incluse.");
+assert.equal(next.updates[0].offers[1].name,"Nouvelle marchandise");
+assert.equal(next.updates[0].offers[1].price,2);
+assert.equal(next.updates[0].offers[1].reference,"fumigene");
+assert.equal(next.updates[0].offers[0].name,"Fumigène amélioré");
 
 // Les quantités fractionnaires et négatives ne doivent jamais être enregistrées.
 const bad=makeActor({...initial});
