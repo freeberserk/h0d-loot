@@ -1,3 +1,25 @@
+## v0.6.26 — Associer un coffre à un marchand sans casser le troc existant
+
+Le coffre H0D peut agir comme **point physique d'interaction**, avec le stock unique et les prix sur un **Actor marchand** distinct.
+
+### Configuration MJ
+1. Sélectionner l'Actor du PNJ vendeur, puis ouvrir **H0D Commerce** et activer son **rôle Marchand**.
+2. Sélectionner le coffre déjà fonctionnel, ouvrir **H0D Commerce → Stock marchand → Configuration → Configurer la liaison**.
+3. Choisir le marchand actif dans la liste. Si l'Actor marchand n'a aucune offre ni aucun historique, il est possible de cocher **Transférer le stock actuel du coffre** ; sinon le nouveau lien utilisera simplement le stock existant du marchand sans copier les offres locales.
+4. Confirmer. Rouvrir le coffre : son écran de stock affiche le stock du marchand associé. Les PJ continuent de cibler le coffre avec **T** et d'utiliser H0D Loot / Troquer, sans interaction MJ supplémentaire.
+
+Le lien est enregistré sous `flags.h0d-loot.linkedMerchantUuid` sur le coffre et référence l'UUID de l'Actor marchand (pas celui d'un token). Plusieurs coffres peuvent pointer vers le même marchand : ils partagent les quantités, les prix, le mode de paiement et les reçus. Le système sérialise les transactions par marchand.
+
+**Aucun transfert implicite :** un coffre déjà configuré fonctionne exactement comme avant tant que sa liaison est vide. Si un lien est activé, son ancien stock local reste en sauvegarde inactive ; le joueur ne peut plus y accéder ni y prélever gratuitement. En cas de lien invalide ou de marchand désactivé, l'action est refusée avec une erreur explicite. La désassociation réactive volontairement le stock local historique.
+
+**Important :** le transfert depuis un coffre est proposé uniquement si l'Actor marchand cible n'a ni offres ni reçus de troc. S'il possède déjà un stock, aucune offre n'est remplacée ; conserve son stock ou commence par préparer un Actor marchand vide. Si une transaction arrive pendant que l'éditeur est ouvert, la sauvegarde refuse d'écraser le stock réellement modifié.
+
+La liaison Coffre ↔ Marchand est indépendante de l'ancien champ « Fiche acheteur » (`buyerId`), conservé en mémoire uniquement. Aucun changement des règles de jetons, de troc, de récupération de machines ou de permissions PJ.
+
+**Validation BAC-à-SABLES :** lier le coffre de test au PNJ, essayer un échange à 1 jeton depuis le compte joueur, vérifier la diminution sur la **fiche du marchand**, rouvrir le coffre, puis vérifier un deuxième coffre associé au même PNJ. Tester également la désassociation et l'absence d'accès au vieux stock en cas de lien volontairement invalide.
+
+---
+
 ## v0.6.25 — Gestion des marchands plus rapide
 
 Ouvre **Stock marchand** depuis l'Actor ou le coffre concerné. La nouvelle fenêtre (largeur initiale 925 px, redimensionnable) est divisée en **Stock et marchandises** et **Configuration**.

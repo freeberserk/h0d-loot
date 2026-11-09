@@ -268,3 +268,17 @@
  .h0d-merchant-toolbar {flex-wrap:wrap;}
  .h0d-merchant-editor {min-width:0;}
 }
+
+
+/* Liaison coffre → marchand : configuration uniquement MJ. */
+.h0d-merchant-link-actions {display:flex; gap:8px; margin-top:9px; flex-wrap:wrap;}
+.h0d-merchant-link-actions button {width:auto; min-width:0; padding:6px 10px;
+  border-radius:6px; border:1px solid rgba(104,174,173,.45);}
+.h0d-merchant-link-dialog {display:flex; flex-direction:column; gap:12px; min-width:min(480px,85vw);}
+.h0d-merchant-link-dialog label {display:flex; flex-direction:column; gap:5px;}
+.h0d-merchant-link-dialog label.h0d-merchant-link-transfer {flex-direction:row; align-items:flex-start; gap:8px;}
+.h0d-merchant-link-dialog .h0d-merchant-link-transfer input {flex:0 0 auto; margin-top:2px;}
+.h0d-merchant-link-dialog select {width:100%; min-width:0;}
+.h0d-merchant-link-dialog .h0d-merchant-link-summary {margin:0; padding:9px;
+  border-radius:5px; background:rgba(51,115,115,.16);}
+.h0d-merchant-link-dialog p {margin:0;}

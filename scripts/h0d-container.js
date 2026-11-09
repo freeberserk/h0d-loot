@@ -1,6 +1,7 @@
 import {merchantAPI} from "./h0d-merchant.js";
 import {barterQuote,recognitionTokenPayment} from "./h0d-trade.js";
 import {openValueTradeDialog} from "./h0d-trade-dialog.js";
+import {resolveMerchantStockOwner} from "./h0d-merchant-link.js";
 
 // H0D Loot — stock des conteneurs, directement sur les tokens (sans tuile).
 // L'Actor conserve le stock canonique ; les cartes de chat n'en sont que des vues filtrées.
@@ -24,23 +25,28 @@ export function isContainerToken(token) {
 }
 
 function readContainer(tokenDoc) {
-  const actor = tokenDoc?.actor;
-  if (!actor || !isContainerToken({actor})) throw new Error("Ce token ne possède aucun stock H0D.");
-  const state = merchantAPI.getMerchant(actor);
-  const mode = actor.system?.template===TEMPLATE_ID
-    ? String(actor.system?.props?.H0D_Conteneur_Mode || "Butin")
-    : state.enabled?"Marchand":"Butin";
-  if (mode === "Marchand" && !state.enabled) throw new Error("Le rôle Marchand est désactivé sur ce conteneur.");
-  return {actor,mode,state};
+  const source=tokenDoc?.actor;
+  if(!source||!isContainerToken({actor:source}))throw new Error("Ce token ne possède aucun stock H0D.");
+  // Un coffre lié ne peut jamais tomber silencieusement sur son ancien stock local :
+  // toute association invalide est une erreur visible et bloque le prélèvement.
+  const link=resolveMerchantStockOwner(source);
+  const actor=link.owner;
+  const state=merchantAPI.getMerchant(actor);
+  const mode=link.linked?"Marchand":source.system?.template===TEMPLATE_ID
+    ? String(source.system?.props?.H0D_Conteneur_Mode||"Butin")
+    :state.enabled?"Marchand":"Butin";
+  if(mode==="Marchand"&&!state.enabled)throw new Error("Le rôle Marchand est désactivé sur ce conteneur.");
+  return {actor,source,mode,state,linked:link.linked};
 }
 
 function stockCard(tokenDoc) {
-  const {actor,mode,state} = readContainer(tokenDoc);
+  const {actor,mode,state,linked} = readContainer(tokenDoc);
   const builder = game.h0dEquipmentBuilder;
   const catalogue = game.h0dCatalogue;
   return {
     tokenUuid:tokenDoc.uuid,
-    name:String(actor.name),
+    merchantActorUuid:actor.uuid,
+    name:linked?String(tokenDoc.actor?.name||"Coffre")+" — "+actor.name:String(actor.name),
     mode,
     valueBarterEnabled:mode==="Marchand"&&state.valueBarterEnabled===true,
     paymentMode:mode==="Marchand"?state.paymentMode:null,
@@ -161,7 +167,8 @@ async function requestContainerTrade(card,offerIndex) {
     actorId:recipient.actor.id,actorUuid:recipient.actor.uuid||null,
     recipientTokenUuid:recipient.tokenUuid||null,offerIndex,
     reference:offer.reference,offerName:offer.name,
-    barterItems,ackOverpay,quotedPrice,tokensUsed};
+    barterItems,ackOverpay,quotedPrice,tokensUsed,
+    merchantActorUuid:card.merchantActorUuid};
   if(helpers.isPrimaryGM())return processClaim(data);
   if(!helpers.primaryGM())return ui.notifications?.warn("H0D : un MJ connecté est nécessaire pour exécuter le troc.");
   game.socket.emit(SOCKET,data);
@@ -216,18 +223,32 @@ async function transferOffer(actor,offer,quantity) {
 }
 
 async function updateCards(tokenDoc) {
-  const card = stockCard(tokenDoc);
-  for (const message of game.messages.contents) {
-    if (message.getFlag(NS,CARD_FLAG)?.tokenUuid !== tokenDoc.uuid) continue;
-    try { await message.update({content:renderStockCard(card),["flags."+NS+"."+CARD_FLAG]:card}); }
-    catch (error) { console.warn("H0D | carte de conteneur non synchronisée",error); }
+  const card=stockCard(tokenDoc);
+  for(const message of game.messages.contents){
+    const previous=message.getFlag(NS,CARD_FLAG);
+    if(!previous)continue;
+    if(previous.tokenUuid!==tokenDoc.uuid&&previous.merchantActorUuid!==card.merchantActorUuid)continue;
+    try {
+      // Les cartes des différents coffres du même marchand restent synchronisées.
+      const sourceToken=previous.tokenUuid===tokenDoc.uuid?tokenDoc:
+        await helpers.resolveTokenDocument(previous.tokenUuid);
+      if(!sourceToken)continue;
+      const current=stockCard(sourceToken);
+      if(current.merchantActorUuid!==card.merchantActorUuid)continue;
+      await message.update({content:renderStockCard(current),["flags."+NS+"."+CARD_FLAG]:current});
+    }catch(error){console.warn("H0D | carte de conteneur non synchronisée",error);}
   }
 }
 
 async function processClaim(data) {
   // Deux tokens liés au même Actor partagent le même stock : une seule file de retraits.
   const tokenDoc=await helpers.resolveTokenDocument(data.tokenUuid);
-  const key=String(tokenDoc?.actor?.uuid || data.tokenUuid || "");
+  // Plusieurs coffres peuvent pointer vers un même marchand : verrouiller
+  // par propriétaire réel du stock, jamais par token ou coffre source.
+  let ownerUuid=tokenDoc?.actor?.uuid;
+  try {if(tokenDoc)ownerUuid=readContainer(tokenDoc).actor.uuid;}
+  catch(_error){/* Le traitement sous verrou renverra la véritable erreur. */}
+  const key=String(ownerUuid||data.tokenUuid||"");
   const previous=pending.get(key)||Promise.resolve();
   let release;
   const gate=new Promise(resolve=>{release=resolve;});
@@ -310,7 +331,9 @@ async function tradeSerialized(data) {
     const tokenDoc=await helpers.resolveTokenDocument(data.tokenUuid);
     if(!tokenDoc||(!user.isGM&&(tokenDoc.hidden||(user.viewedScene&&tokenDoc.parent?.id!==user.viewedScene))))
       return respond(false,"H0D : vendeur inaccessible sur cette scène.");
-    const {actor:vendor,mode,state}=readContainer(tokenDoc);
+    const {actor:vendor,mode,state,linked}=readContainer(tokenDoc);
+    if(linked&&data.merchantActorUuid!==vendor.uuid)
+      return respond(false,"H0D : le marchand associé a changé. Rouvre le coffre avant de troquer.");
     const paymentMode=state.paymentMode||(state.valueBarterEnabled===true?"resources-only":null);
     if(mode!=="Marchand"||!state.enabled||!["tokens-first","resources-only"].includes(paymentMode))
       return respond(false,"H0D : aucun mode de paiement automatique actif.");

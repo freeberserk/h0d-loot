@@ -1,3 +1,13 @@
+## v0.6.26 — Liaison optionnelle Coffre ↔ Marchand
+- Le coffre H0D peut désormais être lié à un **Actor marchand du monde**, au moyen de son UUID stable. La liaison se configure dans **Stock marchand → Configuration → Marchand associé**. La fiche du marchand est accessible depuis le même panneau.
+- Un coffre associé devient un **point d'interaction**, tandis que l'Actor marchand conserve le **stock unique** : tarifs, quantités, mode de paiement, reçus de troc. Les opérations des PJ restent automatiques et sécurisées sur le client MJ.
+- Plusieurs coffres peuvent renvoyer vers le même marchand : les achats sont **sérialisés sur l'UUID du marchand** pour empêcher deux retraits simultanés du dernier exemplaire. Les cartes de stock ouvertes sur différents coffres du même marchand sont actualisées après transaction.
+- **Compatibilité totale** pour les coffres non associés : leurs stocks et leurs règles actuels restent inchangés. Les anciens stocks locaux des coffres associés sont conservés comme historique inactif, non utilisés pour livrer ou vendre.
+- Association cassée, marchand absent/inactif ou référence périmée : échec explicite de l'ouverture ou de la transaction, **sans retour silencieux** au stock local. Les anciennes cartes de troc sont rejetées si la source a changé.
+- Option de **transfert volontaire de l'ancien stock** : seulement vers un marchand activé dont le stock et l'historique sont vides ; le transfert copie les offres, paramètres de paiement et reçus, avant l'inscription du lien, avec tentative de restauration si la liaison échoue. Aucune fusion automatique d'offres.
+- L'ancien champ `buyerId` (« Fiche acheteur ») reste enregistré pour compatibilité mais n'est jamais utilisé comme identifiant de marchand.
+- Tests de régression sur deux coffres, stock unique, liens absents/invalides, permissions MJ, transfert refusé, restauration et non-régression de l'éditeur. Validation BAC-à-SABLES en Foundry VTT 14 encore indispensable.
+
 ## v0.6.25 — Refonte visuelle de la fenêtre de gestion du marchand
 - L'éditeur MJ **Stock marchand** présente désormais deux onglets : **Stock et marchandises** (par défaut) et **Configuration**.
 - Inventaire en cartes compactes avec recherche instantanée, résumé des notes, stock, prix et indication des lots conditionnés ; édition détaillée dépliable.
