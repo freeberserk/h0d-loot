@@ -1,8 +1,8 @@
 {
   "id": "h0d-loot",
   "title": "H0D Loot",
-  "description": "H0D Loot : carcasses persistantes, butins et stocks de conteneurs sur tokens, prélèvements sécurisés vers les PJ.",
-  "version": "0.6.17",
+  "description": "H0D Loot : ouverture joueur et récupération des ressources selon le champ H0D_Composant_Loot des machines.",
+  "version": "0.6.18",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
