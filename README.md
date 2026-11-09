@@ -1,3 +1,15 @@
+## v0.6.19 — Correction indispensable pour les actions côté joueur
+
+Le manifeste inclut maintenant `"socket": true`. Ce champ est **obligatoire** pour que Foundry VTT relaie les événements `module.h0d-loot` entre les navigateurs MJ et joueur. Sans lui, la détection du MJ et l'enregistrement local des écouteurs peuvent être positifs, mais les messages ne parviennent pas au MJ.
+
+**Installation :** mettre H0D Loot à jour, **quitter le monde et le relancer**, puis recharger les deux navigateurs. Un simple rafraîchissement de la page peut ne pas suffire, car le serveur doit enregistrer la déclaration de socket du package au chargement.
+
+**Vérification dans BAC-à-SABLES :** sur deux clients connectés, cibler une machine dont le butin a été généré, cliquer H0D Loot côté joueur et vérifier une carte privée. Tester ensuite le coffre et le vendeur. Le prélèvement et le troc restent soumis à leurs contrôles habituels.
+
+Aucun changement de règles de récolte ou des inventaires n'est effectué par cette version.
+
+---
+
 ## v0.6.18 — Diagnostic direct et correspondances de ressources
 
 Le module lit **`H0D_Composant_Loot` sur chaque pièce machine**. Si ce champ correspond exactement à une ressource H0D, la récupération remet cette ressource (par exemple une *Griffe avant droite* donne une *Plaque métallique*, une *Batterie blanche instable* donne une *Cellule d'énergie faible*). Le module conserve les composants non résolus comme pièces physiques au lieu d'inventer des équivalences.
