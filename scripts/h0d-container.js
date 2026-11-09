@@ -116,8 +116,9 @@ async function requestContainerClaim(card,offerIndex,quantity) {
     recipientTokenUuid:recipient.tokenUuid || null};
   if (helpers.isPrimaryGM()) return processClaim(data);
   if (!helpers.primaryGM()) return ui.notifications?.warn("H0D : aucun MJ actif pour sécuriser le retrait.");
+  // Le MJ actif exécute silencieusement l'écriture protégée par Foundry.
+  // Pas de message de "demande" : seul le résultat effectif (succès ou erreur) sera notifié.
   game.socket.emit(SOCKET,data);
-  ui.notifications?.info("H0D : demande de récupération envoyée.");
 }
 
 async function transferOffer(actor,offer,quantity) {
@@ -273,14 +274,13 @@ export function registerContainerSupport(dependencies) {
         const action=button.dataset.h0dContainerAction;
         const index=action==="take-all-card"?null:Number(button.dataset.index);
         const quantity=action==="take-one"?1:action==="take-all"?"all":"all-card";
-        if (card.mode==="Marchand" && !game.user.isGM) {
-          const confirm=await foundry.applications.api.DialogV2.confirm({
-            window:{title:"H0D — Retrait marchand"},
-            content:"<p>Le transfert de cet objet ne retire aucun jeton. Valider ce retrait avec le MJ avant de continuer.</p>"
-          });
-          if (!confirm)return;
+        // Retrait autonome : aucune approbation du MJ ni confirmation de type "demande".
+        // En mode marchand le paiement demeure externe et n'est pas débité automatiquement.
+        try { await requestContainerClaim(card,index,quantity); }
+        catch (error) {
+          console.error("H0D | récupération depuis un conteneur",error);
+          ui.notifications?.warn("H0D : impossible de récupérer l'objet ("+(error?.message||error)+").");
         }
-        await requestContainerClaim(card,index,quantity);
       });
     });
   });

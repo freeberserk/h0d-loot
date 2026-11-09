@@ -1,3 +1,11 @@
+## v0.6.13 — Récupération autonome sans demande d'approbation
+- Suppression de la notification trompeuse **« demande de récupération envoyée »** : elle signifiait un message socket technique et non une approbation MJ.
+- Suppression du dialogue **« Valider ce retrait avec le MJ »** en mode Stock marchand.
+- **Prendre 1 / Prendre tout ce type** exécute directement le circuit de transfert sécurisé. Le joueur ne reçoit une notification de succès qu'après écriture réelle, ou une erreur si le transfert échoue.
+- Un client MJ actif effectue toujours silencieusement les modifications protégées par Foundry, **sans aucune intervention ou validation manuelle**.
+- Aucun encaissement automatique en mode Marchand ; les prix restent informatifs. Les quantités et les objets déjà possédés ne sont pas modifiés par cette mise à jour seule.
+- Tests de non-régression du workflow sans validation ; vérification dans Foundry v14 avec un compte PJ encore nécessaire.
+
 ## v0.6.12 — Coffres et stocks accessibles depuis les tokens (sans tuiles)
 - Le template `H0D_Actor-template-conteneur v1.0` se consulte directement depuis le token, comme une carcasse : cibler avec T puis utiliser **H0D Loot**. Le MJ peut sélectionner le token et utiliser le même outil.
 - La carte de stock du coffre affiche les marchandises et leurs quantités ; les PJ peuvent **Prendre 1** ou **Prendre tout ce type**. **Tout récupérer** n'est proposé que hors mode Marchand.

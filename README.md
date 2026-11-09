@@ -1,3 +1,13 @@
+## v0.6.13 — Prélèvement immédiat (sans demande au MJ)
+
+Sur un token Conteneur, le joueur cible le coffre (T), ouvre son stock avec H0D Loot et clique sur **Prendre 1** ou **Prendre tout ce type**. **Aucune demande d'approbation et aucune confirmation préalable** ne sont affichées. Le module notifie uniquement le transfert réellement accompli ou une erreur.
+
+Le MJ ne reçoit aucune validation à effectuer. Sa session reste nécessaire techniquement pour enregistrer les changements sur des Actors protégés par Foundry. En **Stock marchand**, la monnaie n'est toujours pas encaissée automatiquement : le retrait est indépendant du paiement, qui reste géré séparément.
+
+Les quantités explicites et le stock de Senn ne changent pas à l'installation. Tests automatisés et contrôles en jeu à distinguer.
+
+---
+
 ## v0.6.12 — Coffres et stocks sur tokens (plus de tuiles)
 
 Le **template Conteneur v1.0** de H0D Template Manager utilise le stock `flags.h0d-loot.merchant`, sans Items embarqués. Son fonctionnement repose maintenant directement sur le token du coffre.
