@@ -1,4 +1,4 @@
-import {barterItemDetails,barterQuote,bestBarterOffer} from "./h0d-trade.js";
+import {barterItemDetails,barterQuote,bestBarterOffer,recognitionTokenPayment} from "./h0d-trade.js";
 
 const escape=value=>foundry.utils.escapeHTML(String(value??""));
 
@@ -29,19 +29,22 @@ export function previewBarterOffer(items,amounts,price){
  * Fenêtre interactive de commerce sans modification de l'inventaire.
  * L'approbation du surplus est intégrée au même dialogue.
  */
-export async function openValueTradeDialog({actor,vendorName,offer}){
+export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="resources-only"}){
   const price=offer.price;
   if(!Number.isSafeInteger(price)||price<0)throw new Error("Prix du vendeur invalide.");
+  const tokenPlan=paymentMode==="tokens-first"?recognitionTokenPayment(actor,price):
+    {used:0,remaining:price,lines:[]};
+  const remaining=tokenPlan.remaining;
   const items=Array.from(actor?.items||[]).map(item=>{
     const details=barterItemDetails(item);
     return details?{...details,img:item.img||"icons/svg/item-bag.svg"}:null;
   }).filter(Boolean);
-  if(price>0&&!items.length){
+  if(remaining>0&&!items.length){
     ui.notifications?.warn("H0D : ce PJ ne possède aucune ressource ou objet avec une valeur de troc utilisable.");
     return null;
   }
 
-  const recommended=bestBarterOffer(actor,price);
+  const recommended=bestBarterOffer(actor,remaining);
   const lines=items.map((item,i)=>`
     <div class="h0d-trade-row" data-h0d-trade-row="${i}">
       <img class="h0d-trade-item-icon" src="${escape(item.img)}" alt="">
@@ -72,6 +75,7 @@ export async function openValueTradeDialog({actor,vendorName,offer}){
       <div><h3>Troc avec ${escape(vendorName)}</h3><small>Lot : ${escape(offer.name)}</small></div>
       <div class="h0d-trade-price"><small>Prix demandé</small><strong>${price} jetons</strong></div>
     </div>
+    ${paymentMode==="tokens-first"?`<p class="h0d-trade-hint">Jetons de Reconnaissance prélevés en priorité : <strong>${tokenPlan.used}</strong>. Complément en ressources : <strong>${remaining}</strong> point(s) de valeur.</p>`:""}
     <div class="h0d-trade-section-title">
       <strong>Ressources proposées</strong>
       <button type="button" class="h0d-trade-auto" data-h0d-trade-auto
@@ -79,10 +83,10 @@ export async function openValueTradeDialog({actor,vendorName,offer}){
         title="${escape(automaticInfo)}"><i class="fa-solid fa-wand-magic-sparkles"></i> Offre au plus juste</button>
     </div>
     <p class="h0d-trade-hint">${escape(automaticInfo)}</p>
-    <div class="h0d-trade-items">${lines||'<p>Aucune ressource à remettre : ce lot est offert à 0 jeton.</p>'}</div>
+    <div class="h0d-trade-items">${lines||'<p>Aucun complément en ressources requis.</p>'}</div>
     <div class="h0d-trade-summary">
-      <div class="h0d-trade-total"><span>Valeur offerte</span><strong data-h0d-trade-total>0 / ${price} jetons</strong></div>
-      <progress max="${Math.max(1,price)}" value="0" data-h0d-trade-progress aria-label="Progression de l'offre de troc"></progress>
+      <div class="h0d-trade-total"><span>Valeur offerte</span><strong data-h0d-trade-total>0 / ${remaining} jetons</strong></div>
+      <progress max="${Math.max(1,remaining)}" value="0" data-h0d-trade-progress aria-label="Progression de l'offre de troc"></progress>
       <div class="h0d-trade-status" role="status" aria-live="polite" data-h0d-trade-status></div>
       <label class="h0d-trade-overpay" data-h0d-trade-ack-row hidden>
         <input type="checkbox" name="tradeOverpay">
@@ -111,7 +115,7 @@ export async function openValueTradeDialog({actor,vendorName,offer}){
     };
     const read=()=>inputs.map(parseQuantity);
     const refresh=()=>{
-      const quote=previewBarterOffer(items,read(),price);
+      const quote=previewBarterOffer(items,read(),remaining);
       if(!quote.valid){
         summary.textContent="Offre à corriger";
         progress.value=0;
@@ -121,8 +125,8 @@ export async function openValueTradeDialog({actor,vendorName,offer}){
         if(confirm)confirm.disabled=true;
         return;
       }
-      summary.textContent=quote.total+" / "+price+" jetons";
-      progress.value=price===0?1:Math.min(price,quote.total);
+      summary.textContent=quote.total+" / "+remaining+" jetons";
+      progress.value=remaining===0?1:Math.min(remaining,quote.total);
       items.forEach((item,i)=>{
         root.querySelector(`[data-h0d-trade-subtotal="${i}"]`).textContent=quote.subtotals[i]+" jetons";
         const previous=inputs[i].previousElementSibling;
@@ -187,9 +191,9 @@ export async function openValueTradeDialog({actor,vendorName,offer}){
             itemId:item.id,quantity:Number(button.form.elements[`pay_${i}`]?.value||0)
           })).filter(row=>row.quantity>0);
           const checked=Boolean(button.form.elements.tradeOverpay?.checked);
-          const quote=barterQuote(actor,data,price);
+          const quote=barterQuote(actor,data,remaining);
           if(quote.overpay>0&&!checked)throw new Error("Excédent non accepté.");
-          return {barterItems:data,ackOverpay:quote.overpay>0&&checked,quotedPrice:price};
+          return {barterItems:data,ackOverpay:quote.overpay>0&&checked,quotedPrice:price,tokensUsed:tokenPlan.used};
         }},
       {action:"cancel",label:"Annuler",callback:()=>({cancelled:true})}
     ]
