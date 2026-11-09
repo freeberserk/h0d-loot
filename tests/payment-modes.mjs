@@ -57,12 +57,12 @@ function env({mode="tokens-first",tokens=2,resources=3,price=3,failDelivery=fals
  const api={getMerchant:()=>clone(vendor.state),
   async setMerchantOffers(_actor,offers){if(failStock)throw Error("Stock refused");vendor.state.offers=clone(offers);}};
  const run=new Function("game","ui","helpers","readContainer","barterQuote",
-  "recognitionTokenPayment","transferOffer","merchantAPI","updateCards","NS","SOCKET","console",
+  "recognitionTokenPayment","acceptsTradePrice","transferOffer","merchantAPI","updateCards","NS","SOCKET","console",
   serialized+";return tradeSerialized;")(
   game,{notifications:{}},
   {resolveTokenDocument:async()=>sceneToken,resolveRecipientActor:async()=>buyer,actorOwnedByUser:()=>true},
   ()=>({actor:vendor,mode:"Marchand",state:clone(vendor.state)}),
-  barterQuote,recognitionTokenPayment,async()=>{
+  barterQuote,recognitionTokenPayment,(mode,currency)=>mode==="tokens-first"?currency==="jetons":mode==="resources-only"&&["jetons","ressources"].includes(currency),async()=>{
    if(failDelivery)throw Error("Delivery refused");
    sold++;
    return {rollback:async()=>{sold--;rolledBack++;}};
