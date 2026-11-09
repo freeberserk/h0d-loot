@@ -94,9 +94,10 @@ export async function openMerchantLinkDialog(source){
       stock:Array.isArray(merchant.offers)?merchant.offers.length:0,
       receipts:Array.isArray(merchant.barterReceipts)?merchant.barterReceipts.length:0};
   });
+  // DialogV2.input refuse tout attribut sur l'élément content lui-même.
+  // Le style doit être porté par un enfant, pas par le conteneur transmis.
   const content=document.createElement("div");
-  content.className="h0d-merchant-link-dialog";
-  content.innerHTML=`<p>Ce coffre est un <strong>point d'interaction</strong> : le stock, les prix et les paiements seront gérés sur l'Actor marchand associé.</p>
+  content.innerHTML=`<div class="h0d-merchant-link-dialog"><p>Ce coffre est un <strong>point d'interaction</strong> : le stock, les prix et les paiements seront gérés sur l'Actor marchand associé.</p>
     <label><strong>Marchand associé</strong>
       <select name="linkedMerchantUuid">
         <option value="">— Aucun : conserver le stock du coffre —</option>
@@ -110,7 +111,7 @@ export async function openMerchantLinkDialog(source){
       <span>Transférer le stock actuel de ce coffre (${localOffers.length} offre(s)) et ses paramètres de paiement au marchand choisi</span>
     </label>
     <p><small>Le transfert est autorisé uniquement si le marchand n'a aucun stock ni historique. Aucune donnée locale du coffre n'est supprimée : elle restera inactive tant que la liaison existe, pour permettre un retour en arrière.</small></p>
-    <p><strong>Important :</strong> la liaison ne touche pas aux fiches PJ, aux stocks des autres marchands ni aux objets physiques. Les coffres non associés restent inchangés.</p>`;
+    <p><strong>Important :</strong> la liaison ne touche pas aux fiches PJ, aux stocks des autres marchands ni aux objets physiques. Les coffres non associés restent inchangés.</p></div>`;
   const redraw=(_event,dialog)=>{
     const root=dialog.element?.querySelector(".h0d-merchant-link-dialog");
     if(!root)return;
