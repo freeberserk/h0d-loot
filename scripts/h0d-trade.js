@@ -43,3 +43,68 @@ export function barterQuote(actor,selection,price){
   if(total<price)throw new Error("Troc insuffisant : "+total+" pour un prix de "+price+".");
   return {price,total,overpay:total-price,lines};
 }
+
+
+/**
+ * Propose une offre couvrant le prix avec l'excédent minimal, puis le
+ * moins d'unités possible à excédent égal.
+ *
+ * Programmation dynamique à quantités bornées (décomposition binaire).
+ * Si les valeurs sortent de la limite de calcul, renvoyer "too-large"
+ * plutôt qu'une approximation présentée comme optimale.
+ * Aucun Item/Actor n'est modifié.
+ */
+export function bestBarterOffer(actor,price,{maxValue=30000}={}){
+  if(!Number.isSafeInteger(price)||price<0)return {status:"invalid-price",selection:[]};
+  if(price===0)return {status:"ok",selection:[],total:0,overpay:0,units:0};
+  const entries=Array.from(actor?.items||[]).map(barterItemDetails).filter(Boolean);
+  if(!entries.length)return {status:"insufficient",selection:[],maxAvailable:0};
+  let available=0;
+  let highest=0;
+  for(const entry of entries){
+    const possible=entry.value*entry.quantity;
+    if(!Number.isSafeInteger(possible))return {status:"too-large",selection:[]};
+    available+=possible;
+    if(!Number.isSafeInteger(available))return {status:"too-large",selection:[]};
+    highest=Math.max(highest,entry.value);
+  }
+  if(available<price)return {status:"insufficient",selection:[],maxAvailable:available};
+  const cap=Math.min(available,price+highest-1);
+  if(!Number.isSafeInteger(cap)||cap>maxValue)return {status:"too-large",selection:[]};
+
+  // Chaque état mémorise un chemin persistant, afin qu'une amélioration
+  // ultérieure de la DP ne modifie pas une solution déjà stockée.
+  const states=Array(cap+1).fill(null);
+  states[0]={units:0,path:null};
+  for(let i=0;i<entries.length;i++){
+    const {value,quantity}=entries[i];
+    let remaining=Math.min(quantity,Math.floor(cap/value));
+    let size=1;
+    while(remaining>0){
+      const take=Math.min(size,remaining),weight=take*value;
+      for(let sum=cap;sum>=weight;sum--){
+        const previous=states[sum-weight];
+        if(!previous)continue;
+        const units=previous.units+take;
+        if(!states[sum]||units<states[sum].units)
+          states[sum]={units,path:{index:i,quantity:take,previous:previous.path}};
+      }
+      remaining-=take;
+      size*=2;
+    }
+  }
+  let chosen=null;
+  for(let sum=price;sum<=cap;sum++){
+    if(states[sum]){chosen={sum,state:states[sum]};break;}
+  }
+  if(!chosen)return {status:"unavailable",selection:[]};
+  const quantities=Array(entries.length).fill(0);
+  for(let p=chosen.state.path;p;p=p.previous)quantities[p.index]+=p.quantity;
+  return {
+    status:"ok",
+    selection:entries.flatMap((entry,i)=>quantities[i]?[{itemId:entry.id,quantity:quantities[i]}]:[]),
+    total:chosen.sum,
+    overpay:chosen.sum-price,
+    units:chosen.state.units
+  };
+}
