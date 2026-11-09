@@ -1,4 +1,5 @@
 import {merchantAPI} from "./h0d-merchant.js";
+import {barterItemDetails,barterQuote} from "./h0d-trade.js";
 
 // H0D Loot — stock des conteneurs, directement sur les tokens (sans tuile).
 // L'Actor conserve le stock canonique ; les cartes de chat n'en sont que des vues filtrées.
@@ -14,14 +15,17 @@ const pending = new Map();
 export function isContainerToken(token) {
   const actor = token?.actor || token?.document?.actor;
   const props = actor?.system?.props || {};
-  return actor?.system?.template === TEMPLATE_ID || Object.hasOwn(props,"H0D_Conteneur_Mode");
+  return actor?.system?.template === TEMPLATE_ID || Object.hasOwn(props,"H0D_Conteneur_Mode") ||
+    actor?.getFlag?.(NS,"merchant")?.enabled===true;
 }
 
 function readContainer(tokenDoc) {
   const actor = tokenDoc?.actor;
-  if (!actor || !isContainerToken({actor})) throw new Error("Ce token n'est pas un conteneur H0D.");
-  const mode = String(actor.system?.props?.H0D_Conteneur_Mode || "Butin");
+  if (!actor || !isContainerToken({actor})) throw new Error("Ce token ne possède aucun stock H0D.");
   const state = merchantAPI.getMerchant(actor);
+  const mode = actor.system?.template===TEMPLATE_ID
+    ? String(actor.system?.props?.H0D_Conteneur_Mode || "Butin")
+    : state.enabled?"Marchand":"Butin";
   if (mode === "Marchand" && !state.enabled) throw new Error("Le rôle Marchand est désactivé sur ce conteneur.");
   return {actor,mode,state};
 }
@@ -34,6 +38,7 @@ function stockCard(tokenDoc) {
     tokenUuid:tokenDoc.uuid,
     name:String(actor.name),
     mode,
+    valueBarterEnabled:mode==="Marchand"&&state.valueBarterEnabled===true,
     offers:(state.offers || []).map((offer,index) => {
       const def = builder?.getDefinition?.(offer.reference) || catalogue?.getDefinition?.(offer.reference) || null;
       const kind = String(def?.kind || "").toLowerCase();
@@ -58,10 +63,16 @@ function renderStockCard(card) {
   const sections = Array.from(groups.entries()).map(([category,offers]) => {
     const rows = offers.map(o => {
       const q = Math.max(0,o.quantity);
-      const actions = q && claimable ? '<span class="h0d-loot-actions">'+
-        '<button type="button" data-h0d-container-action="take-one" data-index="'+o.index+'" title="Prendre 1"><i class="fa-solid fa-hand"></i> 1</button>'+
-        '<button type="button" data-h0d-container-action="take-all" data-index="'+o.index+'" title="Prendre tout ce type"><i class="fa-solid fa-box"></i></button></span>' :
-        (q ? '' : '<span class="h0d-loot-empty">épuisé</span>');
+      const valueBarterAllowed=card.mode==="Marchand"&&card.valueBarterEnabled===true&&
+        o.currency==="jetons"&&Number.isSafeInteger(o.price)&&o.price>=0;
+      const actions=card.mode==="Marchand"
+        ? !q?'<span class="h0d-loot-empty">épuisé</span>'
+          : valueBarterAllowed&&claimable?'<span class="h0d-loot-actions"><button type="button" data-h0d-container-action="trade" data-index="'+o.index+'" title="Échanger 1 lot contre des ressources évaluées"><i class="fa-solid fa-right-left"></i> Troquer</button></span>'
+          : '<span class="h0d-loot-empty">Troc indisponible</span>'
+        : q&&claimable?'<span class="h0d-loot-actions">'+
+          '<button type="button" data-h0d-container-action="take-one" data-index="'+o.index+'" title="Prendre 1"><i class="fa-solid fa-hand"></i> 1</button>'+
+          '<button type="button" data-h0d-container-action="take-all" data-index="'+o.index+'" title="Prendre tout ce type"><i class="fa-solid fa-box"></i></button></span>'
+          :(q?'':'<span class="h0d-loot-empty">épuisé</span>');
       const price = o.price === null ? 'Prix à définir' : esc(o.price) + ' ' + esc(o.currency);
       return '<div class="h0d-loot-row '+(q?'':'is-empty')+'"><img src="'+esc(o.img)+'" alt="">'+
         '<div class="h0d-loot-item"><strong>'+esc(o.name)+'</strong><small>'+price+'</small></div>'+
@@ -71,7 +82,9 @@ function renderStockCard(card) {
   }).join('');
   const count = card.offers.reduce((sum,offer) => sum+Math.max(0,offer.quantity),0);
   const warning = card.mode === 'Marchand'
-    ? '<div class="h0d-loot-warning">Stock marchand : retirer un objet ne débite pas les jetons du PJ. Paiement à gérer avec le MJ.</div>'
+    ? '<div class="h0d-loot-warning">'+(card.valueBarterEnabled
+        ? 'Troc automatique activé : le prix en jetons est payé avec des objets ou ressources dont la valeur de troc est renseignée. Aucun rendu de monnaie.'
+        : 'Le vendeur n’accepte pas encore le troc automatique. Le MJ peut l’activer sur sa fiche.')+'</div>'
     : '';
   const allButton = card.mode !== 'Marchand' && claimable && count
     ? '<button type="button" class="h0d-loot-take-all" data-h0d-container-action="take-all-card"><i class="fa-solid fa-sack-dollar"></i> Tout récupérer</button>' : '';
@@ -210,6 +223,7 @@ async function claimSerialized(data) {
     const indexes = data.quantity === "all-card" && mode !== "Marchand"
       ? state.offers.map((_,index)=>index)
       : [data.offerIndex];
+    if (mode === "Marchand") return respond(false,"H0D : retrait gratuit interdit chez un marchand. Utilise « Troquer ».");
     if (data.quantity === "all-card" && mode === "Marchand") return respond(false,"H0D : retrait global interdit en mode marchand.");
     if (!indexes.length || indexes.some(index=>!Number.isSafeInteger(index) || index<0 || index>=state.offers.length))
       return respond(false,"H0D : marchandise introuvable.");
