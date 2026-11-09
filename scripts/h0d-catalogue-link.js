@@ -30,9 +30,5 @@ export function merchantCatalogueDefinitions(game){
    catalogue.getStockEligibleDefinitions():catalogue.getDefinitions({includeRestricted:false}).filter(safe);
   return {source:"H0D Catalogue",definitions:defs.filter(d=>d?.key&&d?.name&&safe(d))};
  }
- const builder=game?.h0dEquipmentBuilder;
- const legacy=builder?.getStandardStockDefinitions?.()??
-  builder?.getReferenceCatalog?.()??[];
- return {source:"Equipment Builder (secours historique)",definitions:legacy.filter(d=>d?.key&&d?.name&&
-   d.catalogue?.visible_au_stock_standard!==false&&d.catalogue?.pret_pour_builder!==false)};
+ return {source:"H0D Catalogue (indisponible)",definitions:[]};
 }

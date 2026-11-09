@@ -2,7 +2,7 @@
   "id": "h0d-loot",
   "title": "H0D Loot",
   "description": "H0D Loot : récupération, commerce, paiement prioritaire en Jetons de Reconnaissance et complément en ressources.",
-  "version": "0.6.26",
+  "version": "0.6.27",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
@@ -21,5 +21,25 @@
   "url": "https://github.com/freeberserk/h0d-loot",
   "manifest": "https://github.com/freeberserk/h0d-loot/releases/latest/download/module.json",
   "download": "https://github.com/freeberserk/h0d-loot/releases/latest/download/h0d-loot.zip",
-  "socket": true
+  "socket": true,
+  "relationships": {
+    "requires": [
+      {
+        "id": "h0d-catalogue",
+        "type": "module",
+        "manifest": "https://github.com/freeberserk/H0D-catalogue/releases/latest/download/module.json",
+        "compatibility": {
+          "minimum": "0.1.13"
+        }
+      },
+      {
+        "id": "h0d-equipment-builder",
+        "type": "module",
+        "manifest": "https://github.com/freeberserk/h0d-equipment-builder/releases/latest/download/module.json",
+        "compatibility": {
+          "minimum": "0.2.7"
+        }
+      }
+    ]
+  }
 }

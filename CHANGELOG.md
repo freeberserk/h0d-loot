@@ -1,3 +1,10 @@
+## v0.6.27 — Lecture directe et fraîche de H0D Catalogue
+
+- Vente : résolution canonique à chaque transaction, prototype actualisé avant remise au PJ, sans recharger le stock de Senn.
+- Aucune génération de ressource sans définition Catalogue ; aucune valeur de charge locale appliquée aux nouvelles ressources canoniques.
+- Suppression du fallback de l'éditeur marchand sur les listes locales.
+- Dépendances Catalogue / Equipment Builder et tests de non-régression.
+
 ## v0.6.26 — Liaison optionnelle Coffre ↔ Marchand
 - Le coffre H0D peut désormais être lié à un **Actor marchand du monde**, au moyen de son UUID stable. La liaison se configure dans **Stock marchand → Configuration → Marchand associé**. La fiche du marchand est accessible depuis le même panneau.
 - Un coffre associé devient un **point d'interaction**, tandis que l'Actor marchand conserve le **stock unique** : tarifs, quantités, mode de paiement, reçus de troc. Les opérations des PJ restent automatiques et sécurisées sur le client MJ.

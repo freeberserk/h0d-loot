@@ -8,7 +8,9 @@ const [manifestSource,loot,container]=await Promise.all([
 ]);
 const manifest=JSON.parse(manifestSource);
 assert.equal(manifest.id,"h0d-loot","Le canal doit correspondre à l'ID du manifeste.");
-assert.equal(manifest.version,"0.6.26");
+assert.equal(manifest.version,"0.6.27");
+assert.ok(manifest.relationships.requires.some(x=>x.id==="h0d-catalogue"&&x.compatibility.minimum==="0.1.13"));
+assert.ok(manifest.relationships.requires.some(x=>x.id==="h0d-equipment-builder"&&x.compatibility.minimum==="0.2.7"));
 assert.equal(manifest.socket,true,
   "Foundry doit autoriser le namespace module.h0d-loot ; game.socket.on seul ne suffit pas.");
 const socketName="module."+manifest.id;

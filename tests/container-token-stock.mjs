@@ -51,7 +51,7 @@ assert.match(container,/container-open/);
 assert.match(container,/container-claim/);
 assert.match(container,/user\.viewedScene/);
 assert.match(container,/actorOwnedByUser/);
-assert.match(container,/buildItem\(offer\.reference,\{mode:"skip"\}\)/);
+assert.match(container,/buildItem\(offer\.reference,\{mode:"update"\}\)/);
 assert.match(container,/await transferOffer\(actor,op\.offer,op\.qty\)/);
 assert.match(container,/state\.offers\[op\.index\]\.quantity -= op\.qty/);
 assert.match(container,/await merchantAPI\.setMerchantOffers\(source,state\.offers\)/);
@@ -62,6 +62,8 @@ assert.match(container,/data-h0d-container-action="trade"/);
 assert.match(container,/const units=quantity\*perPurchase/);
 assert.match(container,/source\.system\.props\[quantityField\] = String\(units\)/);
 assert.match(container,/source\.name = offer\.name \|\| source\.name/);
+assert.match(container,/const catalogue=catalogueApi\(game\)/);
+assert.doesNotMatch(container,/builder\?\.getDefinition/);
 const playerClaim=extract(container,"async function requestContainerClaim","async function requestContainerTrade");
 assert.match(playerClaim,/game\.socket\.emit\(SOCKET,data\)/,"écriture silencieuse par le MJ");
 assert.doesNotMatch(playerClaim,/ui\.notifications\?\.info|demande de récupération envoyée/i,
