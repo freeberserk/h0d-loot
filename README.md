@@ -1,3 +1,13 @@
+## v0.6.17 — Ouverture joueur du butin et des vendeurs
+
+Sur un compte joueur, **cibler un token machine, coffre ou PNJ vendeur avec T**, puis utiliser l'outil H0D Loot dans les contrôles Tokens. Le module n'exige plus de lire les flags de l'Actor sur le client joueur : il transmet l'identifiant du token au MJ connecté, qui publie la carte privée et confirme l'ouverture. **Aucun clic ni autorisation humaine du MJ** n'est demandé. Les commandes de prélèvement et de troc conservent leurs règles et contrôles existants.
+
+Si l'ouverture échoue, le joueur voit une raison précise. Si le client MJ ne répond pas dans les 12 secondes, le joueur reçoit un avertissement invitant à vérifier que H0D Loot est actif et rechargé sur les deux sessions. La console peut aussi montrer l'exception de bouton. Les stocks, objets possédés et configurations de commerçants ne sont pas modifiés par cette version.
+
+**À vérifier en BAC-à-SABLES** : (1) machine dont le butin est déjà généré, (2) coffre Conteneur, (3) PNJ vendeur, (4) absence de cible T, (5) MJ non connecté. Une publication GitHub et des tests automatisés réussis ne constituent pas une validation sur le serveur.
+
+---
+
 ## v0.6.16 — Mise à jour réellement publiée
 
 Les modifications d'ordre stable des outils et du routage marchand sont publiées sous 0.6.16. Le tag 0.6.15 était déjà utilisé par une version antérieure et ne pouvait pas servir à distribuer ces changements via le pipeline existant.

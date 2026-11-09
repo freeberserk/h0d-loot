@@ -40,7 +40,10 @@ assert.match(merchant,/quantity:Number\.isSafeInteger\(o\.quantite_disponible\).
 // Accès par token : retrait sécurisé, jamais via une tuile.
 assert.match(main,/isContainerToken\(token\)/);
 assert.match(main,/openContainerForGM\(token\.document\)/);
-assert.match(main,/openContainerForPlayer\(token\.document\)/);
+assert.match(main,/game\.socket\.emit\(SOCKET,\{type:"carcass-open"/,
+  "Le joueur transmet l'UUID au MJ qui distingue les coffres et les carcasses.");
+assert.doesNotMatch(main,/await openContainerForPlayer\(token\.document\)/,
+  "Le joueur ne doit plus lire les flags privés du coffre.");
 assert.doesNotMatch(main,/registerMerchantTileHooks\(\)/);
 assert.match(container,/export function isContainerToken/);
 assert.match(container,/H0DContActor0001/);

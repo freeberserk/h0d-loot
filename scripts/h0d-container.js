@@ -403,11 +403,22 @@ async function tradeSerialized(data) {
 
 async function processOpen(data) {
   const user=game.users.get(data.userId);
-  if (!user) return;
+  if (!user) return false;
   const tokenDoc=await helpers.resolveTokenDocument(data.tokenUuid);
-  if (!tokenDoc || (!user.isGM && (tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene)))) return;
-  try { await publishCard(tokenDoc,user.id); }
-  catch (error) { game.socket.emit(SOCKET,{type:"container-result",userId:user.id,ok:false,message:"H0D : "+error.message}); }
+  if (!tokenDoc || (!user.isGM && (tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene)))){
+    game.socket.emit(SOCKET,{type:"container-result",userId:user.id,ok:false,
+      message:"H0D : conteneur inaccessible depuis cette scène."});
+    return false;
+  }
+  try {
+    await publishCard(tokenDoc,user.id);
+    return true;
+  }catch (error) {
+    console.error("H0D | publication de stock impossible",error);
+    game.socket.emit(SOCKET,{type:"container-result",userId:user.id,ok:false,
+      message:"H0D : "+String(error?.message||error)});
+    return false;
+  }
 }
 
 export async function openMerchantForPlayerOnGM(data) {
