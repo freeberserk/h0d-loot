@@ -1,7 +1,7 @@
 import {H0D_TOOL_ORDER} from "./h0d-tool-order.js";
 import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
 import {catalogueApi,resolveCatalogueResource} from "./h0d-catalogue-link.js";
-import {isContainerToken,openContainerForGM,openContainerForPlayer,registerContainerSupport} from "./h0d-container.js";
+import {isContainerToken,openContainerForGM,openContainerForPlayer,openMerchantForPlayerOnGM,registerContainerSupport} from "./h0d-container.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
 const HARVEST_FLAG = "harvestProfile";
@@ -1488,6 +1488,8 @@ async function openCarcassForPlayer(data) {
     const tokenDoc=await resolveTokenDocument(data.tokenUuid);
     if(!tokenDoc || tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene))
       return respond(false,"H0D Loot : carcasse inaccessible sur cette scène.");
+    // Le PJ peut ne pas avoir accès aux flags marchand du PNJ : routage décidé par le MJ.
+    if(isContainerToken({actor:tokenDoc.actor}))return openMerchantForPlayerOnGM(data);
     const loot=await getTokenLoot(tokenDoc,{migrate:true});
     if(!loot?.items) return respond(false,"H0D Loot : aucun butin généré sur cette carcasse. Le MJ doit d'abord générer son butin.");
     // Carte privée émise par le MJ et partagée avec le PJ : aucun écran de validation.

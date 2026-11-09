@@ -1,8 +1,8 @@
-## v0.6.15 — Ordre stable des outils
+## v0.6.15 — Ordre stable des outils et routage du marchand
 
 - Remplace les ordres dynamiques calculés depuis la longueur des outils Foundry par six entiers constants distincts.
 - Répare la collision d'ordres entre les actions Loot et Commerce et stabilise leur ordre pour les joueurs comme pour les MJ.
-- N'altère pas les commandes, droits ou données existants ; ajoute un test de régression.
+- Préserve les droits et données ; corrige le routage vers le marchand côté MJ si le joueur ne peut pas lire les flags de l'Actor, et adapte le test du marchand à la nouvelle constante partagée.
 
 ## v0.6.15 — Commerce PJ / vendeur et troc automatique facultatif
 - Ouvrir depuis le compte joueur le stock d'un **PNJ vendeur** (Actor Créature/PJ avec rôle Marchand), même sans permission de lecture de ses flags, via le token ciblé (T).

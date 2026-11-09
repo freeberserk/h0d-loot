@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
+import {H0D_TOOL_ORDER} from "../scripts/h0d-tool-order.js";
 
 const raw=await readFile(new URL("../scripts/h0d-merchant-tiles.js",import.meta.url),"utf8");
 const code=raw.replace('import {merchantAPI} from "./h0d-merchant.js";',
-  'const merchantAPI=globalThis.__merchantAPITest;');
+  'const merchantAPI=globalThis.__merchantAPITest;')
+  .replace('import {H0D_TOOL_ORDER} from "./h0d-tool-order.js";',
+    'const H0D_TOOL_ORDER=globalThis.__h0dToolOrderTest;');
+globalThis.__h0dToolOrderTest=H0D_TOOL_ORDER;
 
 globalThis.foundry={utils:{
   deepClone: v=>structuredClone(v),
