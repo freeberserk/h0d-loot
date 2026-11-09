@@ -1511,8 +1511,10 @@ async function convertReceivedMachinePart(item,{automatic=false}={}){
       (automatic?" lors du transfert.":"."));
     return true;
   }catch(err){
-    // Rollback du crédit si la suppression de l'objet physique échoue.
-    if(result)try{
+    // Une mise à jour de pile peut réussir avant qu'une écriture de flag échoue :
+    // restaurer la quantité antérieure même si addResourceToActor a rejeté.
+    const alteredPrevious=previous&&String(previous.system?.props?.H0D_Ressource_Quantite)!==String(before);
+    if(result||alteredPrevious)try{
       if(previous)await previous.update({"system.props.H0D_Ressource_Quantite":before});
       else await result.delete();
     }catch(rollbackErr){
@@ -1551,12 +1553,20 @@ async function convertExistingReceivedParts(){
   return {changed,failed};
 }
 
+const automaticSalvageQueues=new Map();
 Hooks.on("createItem",item=>{
   // Les drops réalisés par le MJ sur les PJ passent aussi par ce chemin.
-  // Détection de la pièce à partir de sa source vérifiée, pas de son nom libre.
+  // Une file par PJ empêche que plusieurs griffes créditent simultanément
+  // une même pile de ressources en lisant le même ancien compteur.
   if(!isPrimaryGM()||!startupStatus.resourcesReady||!isPlayerCharacterActor(item.parent))return;
   if(!salvageResourceForReceivedItem(item))return;
-  Promise.resolve(convertReceivedMachinePart(item,{automatic:true})).catch(err=>{
+  const key=item.parent.uuid||item.parent.id;
+  const before=automaticSalvageQueues.get(key)||Promise.resolve();
+  const work=before.catch(()=>{}).then(()=>convertReceivedMachinePart(item,{automatic:true}));
+  automaticSalvageQueues.set(key,work);
+  const clean=()=>{if(automaticSalvageQueues.get(key)===work)automaticSalvageQueues.delete(key);};
+  work.then(clean,clean);
+  work.catch(err=>{
     console.error("H0D Loot | conversion automatique impossible",item.name,err);
     ui.notifications?.error("H0D : "+item.name+" n'a pas pu être converti en ressource ("+
       String(err?.message||err)+").");
