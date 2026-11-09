@@ -1,3 +1,17 @@
+## v0.6.20 — Troc interactif en temps réel
+
+Dans le stock d'un **vendeur dont le troc automatique par valeur est activé**, le PJ clique sur **Troquer** pour ouvrir une fenêtre indiquant clairement le **prix de l'article**, la **quantité de chaque ressource possédée**, sa **valeur unitaire en jetons** et le **sous-total offert**. Le total, la progression, le montant restant et le surplus se recalculent à chaque clic sur **+ / −** ou saisie numérique.
+
+Le bouton **Offre au plus juste** choisit une composition de ressources qui couvre le prix avec le plus petit surplus possible, puis minimise le nombre d'unités cédées à surplus égal. Les champs restent modifiables : le joueur peut rééquilibrer son offre librement. Pour les inventaires dont les montants dépassent la limite de calcul exacte, le bouton sera indisponible et la sélection manuelle restera possible ; aucune offre approximative ne sera présentée comme optimale.
+
+Le bouton **Troquer — confirmer** ne devient actif que lorsque le prix est couvert et que les quantités sont valides. Si le joueur propose davantage que le prix, l'interface affiche la différence **non rendue** et exige une case de consentement au surplus, dans la **même fenêtre**. Modifier l'offre réinitialise cet accord.
+
+Une fois le troc confirmé, **le client MJ connecté revérifie l'inventaire réel, le stock, le prix et les droits** avant de livrer l'article et de retirer les ressources. L'interface ne change pas la règle de troc : seul un vendeur explicitement configuré pour cette équivalence l'accepte, et les ressources non cotées n'ont toujours aucune valeur créée artificiellement.
+
+**Essai BAC-à-SABLES :** faire un troc à valeur exacte avec des Plaques métalliques, puis un troc avec surplus ; vérifier que la case est obligatoire, que les ressources sont correctement débitées et que le vendeur perd exactement un lot. Les tests CI sont distincts de la validation réelle Foundry 14.
+
+---
+
 ## v0.6.19 — Correction indispensable pour les actions côté joueur
 
 Le manifeste inclut maintenant `"socket": true`. Ce champ est **obligatoire** pour que Foundry VTT relaie les événements `module.h0d-loot` entre les navigateurs MJ et joueur. Sans lui, la détection du MJ et l'enregistrement local des écouteurs peuvent être positifs, mais les messages ne parviennent pas au MJ.

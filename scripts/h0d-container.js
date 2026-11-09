@@ -1,5 +1,6 @@
 import {merchantAPI} from "./h0d-merchant.js";
-import {barterItemDetails,barterQuote} from "./h0d-trade.js";
+import {barterQuote} from "./h0d-trade.js";
+import {openValueTradeDialog} from "./h0d-trade-dialog.js";
 
 // H0D Loot — stock des conteneurs, directement sur les tokens (sans tuile).
 // L'Actor conserve le stock canonique ; les cartes de chat n'en sont que des vues filtrées.
@@ -143,43 +144,18 @@ async function requestContainerTrade(card,offerIndex) {
     return ui.notifications?.warn("H0D : prix non compatible avec le troc automatique.");
   const recipient=await helpers.chooseRecipientActor();
   if(!recipient?.actor)return;
-  const ownedItems=Array.from(recipient.actor.items||[]).map(item=>({item,...barterItemDetails(item)}))
-    .filter(record=>record.id&&record.value>0&&record.quantity>0);
-  if(offer.price>0&&!ownedItems.length)
-    return ui.notifications?.warn("H0D : ce PJ n'a aucun objet ou ressource avec une valeur de troc utilisable.");
-  const rows=ownedItems.map((r,i)=>'<div class="form-group"><label>'+esc(r.name)+
-    ' (×'+r.quantity+', valeur '+r.value+'/unité)</label><input type="number" name="pay_'+i+
-    '" value="0" min="0" max="'+r.quantity+'" step="1"></div>').join("");
-  const form=await foundry.applications.api.DialogV2.input({
-    window:{title:"H0D — Troquer avec "+card.name,resizable:true},
-    content:'<p>Article : <strong>'+esc(offer.name)+'</strong> — <strong>'+offer.price+
-      ' jeton(s)</strong> de valeur. Choisis les ressources à remettre au vendeur.</p>'+
-      '<p><small>Valeurs lues dans les fiches Items (Valeur / troc ou Valeur unitaire). Aucun jeton fictif n\'est ajouté. Le troc n\'est validé que si sa valeur atteint le prix. Le surplus éventuel n\'est pas rendu.</small></p>'+
-      (rows||'<p>Aucune ressource nécessaire (prix configuré à zéro).</p>'),
-    ok:{label:"Vérifier le troc",icon:"fa-solid fa-right-left"}
+  // Le dialogue ne débite rien. Il présente les valeurs en temps réel,
+  // compose éventuellement une offre optimale et recueille l'accord sur un surplus.
+  const result=await openValueTradeDialog({
+    actor:recipient.actor,vendorName:card.name,offer
   });
-  if(!form)return;
-  const barterItems=ownedItems.flatMap((item,i)=>{
-    const value=Number(form["pay_"+i]??0);
-    return Number.isSafeInteger(value)&&value>0?[{itemId:item.item.id,quantity:value}]:[];
-  });
-  let quote;
-  try{quote=barterQuote(recipient.actor,barterItems,offer.price);}
-  catch(err){return ui.notifications?.warn("H0D : "+String(err.message||err));}
-  if(quote.overpay>0){
-    const accept=await foundry.applications.api.DialogV2.confirm({
-      window:{title:"H0D — Confirmer un troc avec surplus"},
-      content:"<p>Prix : <strong>"+offer.price+"</strong>. Valeur remise : <strong>"+
-        quote.total+"</strong>. Excédent non rendu : <strong>"+quote.overpay+
-        "</strong>.</p><p>Confirmer cet échange sans rendu de différence ?</p>"
-    });
-    if(!accept)return;
-  }
+  if(!result)return;
+  const {barterItems,ackOverpay,quotedPrice}=result;
   const data={type:"container-trade",userId:game.user.id,tokenUuid:card.tokenUuid,
     actorId:recipient.actor.id,actorUuid:recipient.actor.uuid||null,
     recipientTokenUuid:recipient.tokenUuid||null,offerIndex,
     reference:offer.reference,offerName:offer.name,
-    barterItems,ackOverpay:quote.overpay>0};
+    barterItems,ackOverpay,quotedPrice};
   if(helpers.isPrimaryGM())return processClaim(data);
   if(!helpers.primaryGM())return ui.notifications?.warn("H0D : un MJ connecté est nécessaire pour exécuter le troc.");
   game.socket.emit(SOCKET,data);
@@ -335,6 +311,8 @@ async function tradeSerialized(data) {
     if(!Number.isSafeInteger(index)||index<0||index>=state.offers.length)
       return respond(false,"H0D : cette offre n'existe plus.");
     const offer=state.offers[index];
+    if(data.quotedPrice!==undefined&&data.quotedPrice!==offer.price)
+      return respond(false,"H0D : prix du vendeur modifié depuis l'ouverture du troc. Rouvre son stock.");
     if(offer.reference!==data.reference||offer.name!==data.offerName)
       return respond(false,"H0D : offre modifiée. Rouvre le vendeur.");
     if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)

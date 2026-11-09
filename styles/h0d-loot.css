@@ -122,3 +122,58 @@
   .h0d-storefront { min-width:0; width:100%; }
   .h0d-storefront-row { gap:6px; grid-template-columns:minmax(0,1fr) 78px 74px; }
 }
+
+/* Troc H0D — fenêtre de négociation temps réel. Styles strictement préfixés. */
+.h0d-trade-root { display:flex; flex-direction:column; gap:12px; min-width:min(540px, 90vw); }
+.h0d-trade-root .h0d-trade-heading { display:flex; gap:12px; justify-content:space-between; align-items:center;
+  padding:10px 12px; background:rgba(51,67,67,.25); border-radius:8px; }
+.h0d-trade-root .h0d-trade-heading h3 { margin:0 0 4px; font-size:1.18em; }
+.h0d-trade-root .h0d-trade-heading small { opacity:.78; }
+.h0d-trade-root .h0d-trade-price { flex:0 0 auto; text-align:right; }
+.h0d-trade-root .h0d-trade-price small { display:block; }
+.h0d-trade-root .h0d-trade-price strong { font-size:1.25em; white-space:nowrap; }
+.h0d-trade-root .h0d-trade-section-title { display:flex; justify-content:space-between;
+  align-items:center; gap:10px; flex-wrap:wrap; }
+.h0d-trade-root .h0d-trade-auto { margin:0; padding:5px 9px; width:auto; min-width:0;
+  background:rgba(28,114,116,.23); border:1px solid rgba(60,169,168,.55); border-radius:6px; }
+.h0d-trade-root .h0d-trade-auto:disabled { opacity:.45; cursor:not-allowed; }
+.h0d-trade-root .h0d-trade-hint { font-size:.83em; opacity:.75; margin:-6px 0 0; }
+.h0d-trade-root .h0d-trade-items { max-height:310px; overflow:auto; }
+.h0d-trade-root .h0d-trade-row { display:grid; grid-template-columns:34px minmax(0,1fr) 132px 86px;
+  gap:9px; align-items:center; padding:10px 5px; border-bottom:1px solid rgba(125,155,155,.18); }
+.h0d-trade-root .h0d-trade-item-icon { width:32px; height:32px; border-radius:5px; object-fit:cover; border:0; }
+.h0d-trade-root .h0d-trade-item-description { min-width:0; }
+.h0d-trade-root .h0d-trade-item-description strong { display:block; overflow-wrap:anywhere; }
+.h0d-trade-root .h0d-trade-item-description small { display:block; opacity:.78; font-size:.8em; }
+.h0d-trade-root .h0d-trade-quantity { display:flex; align-items:center; gap:3px; }
+.h0d-trade-root .h0d-trade-quantity button { padding:0; width:29px; min-width:29px;
+  height:30px; border:1px solid rgba(90,160,160,.48); border-radius:5px; }
+.h0d-trade-root .h0d-trade-quantity button:disabled { opacity:.35; }
+.h0d-trade-root .h0d-trade-quantity input { min-width:0; max-width:58px; height:30px;
+  text-align:center; padding:2px; }
+.h0d-trade-root .h0d-trade-line-value { text-align:right; }
+.h0d-trade-root .h0d-trade-line-value small { font-weight:400; font-size:.72em; }
+.h0d-trade-root .h0d-trade-summary { display:flex; flex-direction:column; gap:7px;
+  background:rgba(35,58,62,.3); border:1px solid rgba(100,170,170,.27);
+  padding:12px; border-radius:8px; }
+.h0d-trade-root .h0d-trade-total { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+.h0d-trade-root .h0d-trade-total strong { font-size:1.18em; font-variant-numeric:tabular-nums; }
+.h0d-trade-root progress { width:100%; height:10px; accent-color:#38947b; }
+.h0d-trade-root .h0d-trade-status { padding:5px 0; }
+.h0d-trade-root .h0d-trade-status[data-status="insufficient"],
+.h0d-trade-root .h0d-trade-status[data-status="overpay"],
+.h0d-trade-root .h0d-trade-status[data-status="invalid"] { color:#d8a64e; }
+.h0d-trade-root .h0d-trade-status[data-status="exact"] { color:#64c9a9; }
+.h0d-trade-root .h0d-trade-overpay { display:flex; align-items:flex-start; gap:8px;
+  border-top:1px solid rgba(155,132,84,.35); padding-top:9px; cursor:pointer; }
+.h0d-trade-root .h0d-trade-overpay input { flex:0 0 auto; margin-top:3px; }
+.h0d-trade-root .h0d-trade-overpay[hidden] { display:none; }
+.h0d-trade-root .h0d-trade-footnote { font-size:.79em; opacity:.72; margin:0; }
+@media (max-width:660px) {
+  .h0d-trade-root { min-width:0; }
+  .h0d-trade-root .h0d-trade-row { grid-template-columns:30px minmax(0,1fr) 82px; }
+  .h0d-trade-root .h0d-trade-quantity { grid-column:2; }
+  .h0d-trade-root .h0d-trade-line-value { grid-column:3; grid-row:2; }
+  .h0d-trade-root .h0d-trade-quantity input { max-width:43px; }
+  .h0d-trade-root .h0d-trade-quantity button { width:24px; min-width:24px; }
+}

@@ -28,6 +28,8 @@ jobs:
           node tests/module-socket-manifest.mjs
           node tests/catalogue-link.mjs
           node tests/vendor-commerce.mjs
+          node tests/trade-live-dialog.mjs
+          node tests/trade-dialog-interaction.mjs
       - name: Validate JavaScript and manifest
         run: |
           node --check scripts/h0d-tool-order.js
@@ -38,6 +40,7 @@ jobs:
           node --check scripts/h0d-merchant-tiles.js
           node --check scripts/h0d-catalogue-link.js
           node --check scripts/h0d-trade.js
+          node --check scripts/h0d-trade-dialog.js
           python3 -m json.tool module.json > /dev/null
       - name: Package and publish release
         if: github.event_name != 'pull_request'
