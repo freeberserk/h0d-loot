@@ -57,4 +57,17 @@ assert.match(container,/Paiement à gérer avec le MJ/);
 assert.match(container,/const units=quantity\*perPurchase/);
 assert.match(container,/source\.system\.props\[quantityField\] = String\(units\)/);
 assert.match(container,/source\.name = offer\.name \|\| source\.name/);
+const playerClaim=extract(container,"async function requestContainerClaim","async function transferOffer");
+assert.match(playerClaim,/game\.socket\.emit\(SOCKET,data\)/,"écriture silencieuse par le MJ");
+assert.doesNotMatch(playerClaim,/ui\.notifications\?\.info|demande de récupération envoyée/i,
+  "ne pas annoncer une demande avant transfert effectif");
+const cardHooks=extract(container,"export function registerContainerSupport","\n}",);
+assert.doesNotMatch(cardHooks,/DialogV2\.confirm|Valider ce retrait avec le MJ/,
+  "aucune validation manuelle exigée en mode marchand");
+assert.match(cardHooks,/await requestContainerClaim\(card,index,quantity\)/,
+  "le clic prélève immédiatement sans confirmation");
+assert.match(container,/type:"container-result"/,"réponse de résultat émise");
+assert.match(container,/data\.ok\?ui\.notifications\?\.info:ui\.notifications\?\.warn/,
+  "succès ou erreur notifiés uniquement après traitement");
+
 console.log("OK: H0D conteneurs sur tokens ; quantités sûres et transferts encadrés.");
