@@ -78,3 +78,77 @@ export async function assignContainerMerchant(source,uuid,{transferLegacyStock=f
   }
   return {changed:true,linked:true,merchant:target,transferred:transferLegacyStock};
 }
+
+const esc=value=>foundry.utils.escapeHTML(String(value??""));
+export async function openMerchantLinkDialog(source){
+  if(!game.user?.isGM)throw new Error("Association réservée au MJ.");
+  if(!isContainerActor(source))throw new Error("Seul un coffre H0D peut être associé à un marchand.");
+  const options=eligibleMerchantActors(source);
+  const current=linkedMerchantUuid(source);
+  const missingCurrent=current&&!options.some(actor=>actor.uuid===current);
+  const local=foundry.utils.deepClone(source.getFlag(NS,"merchant")||{});
+  const localOffers=Array.isArray(local.offers)?local.offers:[];
+  const definitions=options.map(actor=>{
+    const merchant=actor.getFlag(NS,"merchant")||{};
+    return {uuid:actor.uuid,name:actor.name,
+      stock:Array.isArray(merchant.offers)?merchant.offers.length:0,
+      receipts:Array.isArray(merchant.barterReceipts)?merchant.barterReceipts.length:0};
+  });
+  const content=document.createElement("div");
+  content.className="h0d-merchant-link-dialog";
+  content.innerHTML=`<p>Ce coffre est un <strong>point d'interaction</strong> : le stock, les prix et les paiements seront gérés sur l'Actor marchand associé.</p>
+    <label><strong>Marchand associé</strong>
+      <select name="linkedMerchantUuid">
+        <option value="">— Aucun : conserver le stock du coffre —</option>
+        ${missingCurrent?'<option selected value="'+esc(current)+'">Marchand actuellement introuvable : '+esc(current)+'</option>':""}
+        ${definitions.map(entry=>'<option value="'+esc(entry.uuid)+'" '+(entry.uuid===current?"selected":"")+">"+
+          esc(entry.name)+" ("+entry.stock+" offre(s))</option>").join("")}
+      </select>
+    </label>
+    <p data-h0d-link-summary class="h0d-merchant-link-summary"></p>
+    <label class="h0d-merchant-link-transfer"><input type="checkbox" name="transferLegacyStock">
+      <span>Transférer le stock actuel de ce coffre (${localOffers.length} offre(s)) et ses paramètres de paiement au marchand choisi</span>
+    </label>
+    <p><small>Le transfert est autorisé uniquement si le marchand n'a aucun stock ni historique. Aucune donnée locale du coffre n'est supprimée : elle restera inactive tant que la liaison existe, pour permettre un retour en arrière.</small></p>
+    <p><strong>Important :</strong> la liaison ne touche pas aux fiches PJ, aux stocks des autres marchands ni aux objets physiques. Les coffres non associés restent inchangés.</p>`;
+  const redraw=(_event,dialog)=>{
+    const root=dialog.element?.querySelector(".h0d-merchant-link-dialog");
+    if(!root)return;
+    const select=root.querySelector('[name="linkedMerchantUuid"]');
+    const check=root.querySelector('[name="transferLegacyStock"]');
+    const summary=root.querySelector("[data-h0d-link-summary]");
+    const refresh=()=>{
+      const chosen=definitions.find(entry=>entry.uuid===select.value);
+      const possible=!!chosen&&localOffers.length>0&&chosen.stock===0&&chosen.receipts===0;
+      check.disabled=!possible;
+      if(!possible)check.checked=false;
+      summary.textContent=!select.value?"Le coffre utilisera son stock local (historique).":
+        !chosen?"Le marchand associé ne peut pas être retrouvé. Choisis un autre marchand actif.":
+        "Marchand : "+chosen.name+" — "+chosen.stock+" offre(s). "+
+          (possible?"Tu peux transférer les "+localOffers.length+" offres du coffre.":
+            "Le stock du marchand sera utilisé sans copier les anciennes offres du coffre.");
+    };
+    select.addEventListener("change",refresh);
+    refresh();
+  };
+  const choice=await foundry.applications.api.DialogV2.input({
+    window:{title:"H0D — Associer un marchand à "+source.name,resizable:true},
+    content,render:redraw,ok:{label:"Enregistrer l'association",icon:"fa-solid fa-link"}
+  });
+  if(!choice)return null;
+  const uuid=String(choice.linkedMerchantUuid||"").trim();
+  const transfer=choice.transferLegacyStock===true||choice.transferLegacyStock==="on";
+  if(uuid===current)return {changed:false,linked:!!uuid,transferred:false};
+  // Confirmation distincte : changement de source de vérité, pas une simple préférence graphique.
+  const next=definitions.find(entry=>entry.uuid===uuid);
+  const confirm=await foundry.applications.api.DialogV2.confirm({
+    window:{title:"H0D — Confirmer la liaison"},
+    content:"<p>Ce coffre utilisera désormais <strong>"+(next?esc(next.name):"son stock local")+
+      "</strong> pour les achats et prélèvements.</p>"+
+      (transfer?"<p><strong>Les anciennes offres du coffre seront copiées vers le marchand avant la liaison.</strong></p>":
+        "<p>Les anciennes offres locales du coffre ne seront pas utilisées tant que la liaison existe.</p>")+
+      "<p>Le stock existant n'est pas supprimé automatiquement.</p>"
+  });
+  if(!confirm)return null;
+  return assignContainerMerchant(source,uuid,{transferLegacyStock:transfer});
+}
