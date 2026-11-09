@@ -1,3 +1,13 @@
+## v0.6.18 — Recyclage canonique des pièces et diagnostic joueur
+- **Conversion fondée sur les fiches machines** : les pièces récupérables utilisent en priorité `H0D_Composant_Loot` (nom exact de ressource présente dans la bibliothèque) ; ne plus décider uniquement d'après « Griffe » ou « Batterie ». Exemples confirmés dans BAC-à-SABLES : Griffe avant droite → Plaques métalliques ; Batterie blanche instable → Cellule d’énergie faible.
+- Les anciennes cartes contenant encore `partProps.H0D_Composant_Loot` sont relues avec le même mapping sans modifier automatiquement les stocks existants. Les pièces sans correspondance univoque restent physiques ; les pièces détruites et à zéro PV conservent les règles de butin.
+- Si le MJ donne **directement un Item composant machine** à l'inventaire d'un PJ, H0D Loot transforme cet Item en ressource quand le champ Loot correspond exactement à la bibliothèque. Une provenance H0D Loot vérifiable permet aussi de convertir un Objet « PieceMachine ». En cas d'échec de suppression, le module essaie d'annuler le crédit en ressource.
+- Nouvelle action MJ `game.h0dLoot.convertExistingPieces()` : sur un token de PJ sélectionné, prévisualise et propose la conversion des anciens objets physiques uniquement si leur pièce d'origine est vérifiable. Aucun balayage automatique des anciennes fiches ni conversion à partir du nom seul.
+- Initialisation critique : les écouteurs socket MJ/PJ et coffres sont enregistrés **avant** les chargements facultatifs de ressources, compendiums et RollTables. Les erreurs de cette phase ne rendent plus silencieusement indisponible l'API d'ouverture.
+- API alternative indépendante de l'icône Foundry : `game.h0dLoot.open()` et `game.h0dLoot.diagnoseOpen()`; raccourci facultatif configurable dans les commandes clavier (aucune touche imposée).
+- Tests ajoutés : valeur canonique explicite, cartes préexistantes, source d'Objet vérifiée, refus d'identité inconnue, conversion directe et ordre d'enregistrement socket.
+- **La cause exacte de l'absence de réaction du bouton dans l'instance Foundry n'est pas encore prouvée** : vérification dans BAC-à-SABLES avec les diagnostics locaux indispensable.
+
 ## v0.6.17 — Réparer le clic joueur sur machines, coffres et vendeurs
 - Le bouton Scene Controls exécute désormais son ouverture via un wrapper capturant aussi les erreurs asynchrones. Toute exception devient une notification visible et une trace console.
 - Le client joueur envoie **seulement l'UUID du token ciblé**, sans lire lui-même les flags du coffre ou de l'Actor source. Le client MJ actif décide du type réel (machine, coffre ou vendeur) et publie le butin ou stock approprié.
