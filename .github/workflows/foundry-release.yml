@@ -12,8 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify persistent manual loot dialog
-        run: node tests/persistent-dialog.mjs
+      - name: Verify persistent manual loot dialog and control order
+        run: |
+          node tests/persistent-dialog.mjs
           node tests/control-order.mjs
       - name: Verify fauna harvest constraints and persistence
         run: |
