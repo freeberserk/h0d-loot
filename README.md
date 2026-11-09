@@ -1,3 +1,17 @@
+## v0.6.22 — Récupération : rendements, rareté et charges
+
+**Machine Builder v0.12.0** transmet le rendement, la charge de la pièce entière, une probabilité rare par composant et une clé de Catalogue exacte. Lorsqu'une carcasse est générée, chaque composant donne **soit une pièce rare cataloguée, soit les ressources normales**. Le tirage est mémorisé dans le flag de carcasse, sans relance à chaque consultation.
+
+- Griffes/cornes et capteurs : 10 % si une pièce rare correspondante existe ; modules électroniques : 5 % si une référence rare correspondante existe. Aucun substitut inventé.
+- Plaques de blindage : jamais rares par ce système, mais fournissent plusieurs **PM** (2 / 4 / 6 selon gabarit, ou valeur explicitement déclarée).
+- Endommagé : rendement /2 (arrondi à l'inférieur, minimum 1 si récupérable), chance rare /2. Détruit ou 0 PV : aucune ressource ni rareté ; les anciennes pièces détachées à 0 PV restent visibles sans seconde récompense.
+- Les noyaux, trophées et modules spéciaux existants sont conservés. La table de butin de châssis continue à fournir ses ressources indépendantes sans compter deux fois le même composant.
+- Le transfert d'une rare utilise exclusivement `catalogueKey` validée dans **H0D Catalogue**. Les pièces rares sans charge unitaire chiffrée reçoivent un zéro technique annoté **charge spéciale à valider**, jamais une valeur de troc inventée.
+- Les charges communes suivent le barème validé : PM 1, fibres/circuits/lentilles 0,25, fluides/cellules faibles 0,5, cellules stables 1, noyaux 2/4/8. Les munitions restent à charge 0.
+- Les nouveaux transferts conservent les propriétés du template CSB avant d'appliquer celles du Catalogue, ce qui corrige le risque d'affichage `ERROR` lié aux charges absentes.
+
+**Aucune migration automatique des inventaires, des carcasses déjà générées ou des acteurs machines.** Un MJ peut corriger les seules charges manquantes du personnage sélectionné, à son initiative, dans la console Foundry : `await game.h0dLoot.syncResourceCharges()`. Les charges déjà non nulles restent intactes.
+
 ## v0.6.21 — Deux modes de paiement marchand
 
 La fiche **H0D — Stock marchand** propose deux choix : **Jetons prioritaires + ressources complémentaires**, ou **Ressources uniquement**.

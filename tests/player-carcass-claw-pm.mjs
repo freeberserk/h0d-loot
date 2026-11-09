@@ -60,9 +60,14 @@ assert.deepEqual(oldLoot.items[0].kind,"machine-piece","No mutation of stored ol
 const funcs=extract("function findRecoverableMachineParts","function findDestroyedMachineParts",
   "findRecoverableMachineParts",
   ["foundry","norm","canonicalMachinePartResource",
-    "machinePartIsChassis","machinePieceLootEntry","damagedMachineResource"],
+    "machinePartIsChassis","machinePieceLootEntry","damagedMachineResource",
+    "exactRareCatalogueDefinition","decideSalvage"],
   [foundry,norm,clawFn.canonicalMachinePartResource,
-    ()=>false,(item)=>({kind:"machine-piece",name:item.name}),()=>pm]);
+    ()=>false,(item)=>({kind:"machine-piece",name:item.name}),()=>pm,
+    ()=>null,(_props,{hp,max,state,name})=>({
+      kind:hp<=0||String(state).toLowerCase()==="detruit"?"none":"materials",
+      quantity:hp<=0?0:1,pristine:hp>=max
+    })]);
 const part=(name,state="Intact",hp=10)=>({
   id:"id-"+name,name,system:{template:"H0DCompMach00001",props:{
     H0D_Composant_PV_Max:10,H0D_Composant_PV_Actuels:hp,
@@ -87,7 +92,7 @@ assert.deepEqual(parts.slice(0,2).map(x=>x.resource.id),["pm","cell"]);
 assert.equal(parts[2].kind,"machine-piece","Une référence invalide reste non convertie.");
 const deteriorated=funcs({items:[part("Griffe","Detache",0)]});
 assert.equal(deteriorated[0].kind,"machine-piece","Pièce détachée à 0 PV encore dégradée.");
-assert.equal(deteriorated[1].resource.name,"Plaques métalliques","Ressource secondaire conservée.");
+assert.equal(deteriorated.length,1,"Une pièce à 0 PV ne donne plus de seconde ressource gratuite.");
 
 const player=slice("async function playerOpenTargetedLoot","async function generateControlled");
 assert.match(player,/type:"carcass-open"/,"Player requests carcass through socket");

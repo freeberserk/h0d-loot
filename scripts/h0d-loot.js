@@ -1,4 +1,5 @@
 import {H0D_TOOL_ORDER} from "./h0d-tool-order.js";
+import {decideSalvage} from "./h0d-salvage-rules.js";
 import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
 import {catalogueApi,resolveCatalogueResource} from "./h0d-catalogue-link.js";
 import {isContainerToken,openContainerForGM,openContainerForPlayer,openMerchantForPlayerOnGM,registerContainerSupport} from "./h0d-container.js";
@@ -203,13 +204,15 @@ Hooks.once("ready", async () => {
     diagnose: () => foundry.utils.deepClone(compendiumStatus),
     diagnoseOpen:diagnosePlayerLoot,
     convertExistingPieces:convertExistingReceivedParts,
+    syncResourceCharges:syncResourceChargesForActor,
     ...merchantAPI
   };
 
   game.h0dMerchant={...merchantAPI};
   // Point d'entrée indépendant de la barre des contrôles pour un test macro PJ.
   game.h0dLoot={open:openLootForCurrentSelection,diagnoseOpen:diagnosePlayerLoot,
-    convertExistingPieces:convertExistingReceivedParts};
+    convertExistingPieces:convertExistingReceivedParts,
+    syncResourceCharges:syncResourceChargesForActor};
   try {
     await loadLibrary();
     startupStatus.resourcesReady=resourceLibrary.size>0;
@@ -220,7 +223,7 @@ Hooks.once("ready", async () => {
     console.error("H0D Loot | données facultatives à initialiser",err);
     ui.notifications?.warn("H0D Loot : données à vérifier ; le canal MJ-joueur reste actif.");
   }
-  console.log("H0D Loot | v0.6.19 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
+  console.log("H0D Loot | v0.6.22 prêt", {resources:resourceLibrary.size,compendium:compendiumStatus,startupStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -601,7 +604,7 @@ async function generateForToken(token, type) {
       const examined = new Set();
       for (const part of findRecoverableMachineParts(actor)) {
         if (part.kind === "resource") {
-          addLoot(lootMap, part.resource, 1, part.note, {
+          addLoot(lootMap, part.resource, part.quantity, part.note, {
             category:part.category || "Ressource",
             keyPrefix:part.category ? `${part.category}:` : ""
           });
@@ -808,6 +811,8 @@ function normalizeGenericClawLoot(loot) {
   if(loot?.source?.type!=="machine")return loot;
   for(const entry of loot.items||[]){
     if(entry.kind!=="machine-piece")continue;
+    // Conserver l'état des anciennes cartes ; une pièce à 0 PV ne se recycle pas.
+    if(entry.deteriorated || Number(entry.sourceHp)===0)continue;
     const resource=canonicalMachinePartResource(entry.partProps||{},entry.name);
     if(!resource)continue;
     const previousName=entry.name;
@@ -931,6 +936,15 @@ function machinePieceLootEntry(item, actor, {hp, max, category, condition, deter
   };
 }
 
+
+function exactRareCatalogueDefinition(key) {
+  if(!key)return null;
+  const api=catalogueApi(game);
+  const match=api?.resolveDefinition?.({key,kind:"resource"});
+  if(match?.status!=="key" || match.definition?.key!==key || match.definition?.kind!=="resource")return null;
+  return match.definition;
+}
+
 function findRecoverableMachineParts(actor) {
   const entries = [];
   const bool = v => v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true";
@@ -949,15 +963,29 @@ function findRecoverableMachineParts(actor) {
     // Détruite = aucun composant physique exploitable dans cette règle.
     if(stateNorm === "detruit") continue;
 
-    // Le tableau de la machine tranche : H0D_Composant_Loot est la ressource
-    // à recevoir (Griffe -> PM, Batterie -> Cellule, etc.). Jamais de double loot.
-    // Les pièces à 0 PV ou détruites gardent leurs règles de détérioration.
-    if(hp>0){
+    // Un seul résultat par pièce : spécial OU matériaux. Jet fait lors de la
+    // première génération et figé dans le flag de carcasse (pas de reroll à l'ouverture).
+    const rareKey=String(p.H0D_Composant_Rare_Catalogue_Key||"").trim();
+    const rareDefinition=exactRareCatalogueDefinition(rareKey);
+    const outcome=decideSalvage(p,{hp,max,state,name:item.name,rareAvailable:!!rareDefinition});
+    if(outcome.kind==="rare"){
+      entries.push({
+        entryId:foundry.utils.randomID(),kind:"catalogue-resource",
+        catalogueKey:rareKey,name:rareDefinition.name,
+        img:rareDefinition.img||item.img||"icons/svg/item-bag.svg",
+        quantity:1,category:"Composants rares",label:item.name,
+        note:"Pièce rare issue de "+item.name+" ; aucun matériau commun supplémentaire"
+      });
+      continue;
+    }
+    if(outcome.kind==="materials"&&outcome.quantity>0){
       const mapped=canonicalMachinePartResource(p,item.name);
       if(mapped){
         entries.push({
-          entryId:foundry.utils.randomID(),kind:"resource",resource:mapped,quantity:1,
-          note:"Recyclage de "+item.name+" : "+mapped.name,label:item.name
+          entryId:foundry.utils.randomID(),kind:"resource",resource:mapped,
+          quantity:outcome.quantity,category:"Ressource",
+          note:"Recyclage de "+item.name+" ("+(outcome.pristine?"intact":"endommagé")+") : "+
+            outcome.quantity+" × "+mapped.name,label:item.name
         });
         continue;
       }
@@ -980,29 +1008,8 @@ function findRecoverableMachineParts(actor) {
           deteriorated:true
         }));
 
-        const resource = damagedMachineResource(item, actor);
-        if(resource) {
-          entries.push({
-            entryId:foundry.utils.randomID(),
-            kind:"resource",
-            resource,
-            quantity:1,
-            category:"Récupération secondaire",
-            note:`Issue de ${item.name} détérioré (0/${max} PV)`,
-            label:item.name
-          });
-        } else {
-          entries.push({
-            entryId:foundry.utils.randomID(),
-            kind:"text",
-            name:`Récupération secondaire — ${item.name}`,
-            img:item.img,
-            quantity:1,
-            category:"À arbitrer par le MJ",
-            note:"Famille de récupération non déterminée automatiquement",
-            label:item.name
-          });
-        }
+        // À 0 PV : pas de seconde unité gratuite. La pièce détériorée
+        // reste physiquement visible, mais ne crée aucun matériau ni rareté.
       }
       continue;
     }
@@ -1016,8 +1023,10 @@ function findRecoverableMachineParts(actor) {
     } else if(hp < max || stateNorm === "endommage") {
       const resource = damagedMachineResource(item, actor);
       if(resource) {
-        entries.push({
-          entryId:foundry.utils.randomID(),kind:"resource",resource,quantity:1,
+        const salvage=decideSalvage(p,{hp,max,state,name:item.name,rareAvailable:false});
+        if(salvage.quantity>0)entries.push({
+          entryId:foundry.utils.randomID(),kind:"resource",resource,
+          quantity:salvage.quantity,
           note:`Recyclage de ${item.name} (${hp}/${max} PV)`,label:item.name
         });
       }
@@ -1808,7 +1817,7 @@ function claimRecord(user, actor, entry, quantity) {
 }
 
 function isTransferable(entry) {
-  return entry?.kind === "resource" || entry?.kind === "embedded" || entry?.kind === "machine-piece";
+  return entry?.kind === "resource" || entry?.kind === "catalogue-resource" || entry?.kind === "embedded" || entry?.kind === "machine-piece";
 }
 
 async function persistLoot(message, loot, tokenDoc=null) {
@@ -1842,12 +1851,15 @@ async function persistLoot(message, loot, tokenDoc=null) {
 
 async function transferEntryToActor(actor, entry, quantity, tokenDoc) {
   if (entry.kind === "resource") return addResourceToActor(actor, entry.resourceId, quantity);
+  if (entry.kind === "catalogue-resource") return addExactCatalogueRareToActor(actor,entry.catalogueKey,quantity);
   if (entry.kind === "embedded") return addEmbeddedLootToActor(actor, entry, quantity, tokenDoc);
   if (entry.kind === "machine-piece") {
     // Le champ Loot du composant passe avant tout transfert d'Objet physique,
     // même si la carte a été créée avec une ancienne version de H0D Loot.
     const mapped=canonicalMachinePartResource(entry.partProps||{},entry.name);
-    if(mapped)return addResourceToActor(actor,mapped.id,quantity);
+    if(mapped && !entry.deteriorated && Number(entry.sourceHp)!==0
+      && entry.partProps?.H0D_Composant_Conserver_Entier!==true)
+      return addResourceToActor(actor,mapped.id,quantity);
     return addMachinePartToActor(actor, entry, quantity);
   }
   throw new Error(`Type de butin non transférable : ${entry.kind}`);
@@ -1900,6 +1912,99 @@ async function addMachinePartToActor(actor,entry,quantity) {
   return actor.createEmbeddedDocuments("Item",sources);
 }
 
+
+// Unit charge is separate from barter value; `0` for an unvalued unique
+// piece is ONLY a technical fallback, not a validated weightless item.
+function knownResourceUnitCharge(resource,definition=null){
+  const props=definition?.props||{};
+  const exact=props.H0D_Ressource_Charge_Unitaire;
+  if(exact!==undefined&&exact!==null&&String(exact).trim()!==""
+    &&Number.isFinite(Number(exact))&&Number(exact)>=0)return Number(exact);
+  if(definition?.catalogue?.charge_statut==="a-valider-piece-speciale")return null;
+  const p=resource?.source?.system?.props||resource?.system?.props||{};
+  const type=norm(props.H0D_Ressource_Type||p.H0D_Ressource_Type||"");
+  const name=norm(definition?.name||resource?.name||"");
+  if(type==="plaque"||/plaques metalliques|plaque de machine propre/.test(name))return 1;
+  if(["fibre","lentille","circuit"].includes(type)||/fibre|lentille|circuit/.test(name))return 0.25;
+  if(type==="fluide"||/fluide elementaire/.test(name))return 0.5;
+  if(type==="cellule"||/cellule|batterie/.test(name))
+    return /stable|solaire/.test(name)?1:0.5;
+  if(type==="noyau"||/noyau/.test(name))
+    return /lourd/.test(name)?8:/moyen|moyenne/.test(name)?4:/petit|petite/.test(name)?2:null;
+  return null;
+}
+function applyKnownResourceCharge(props,resource,definition=null){
+  const known=knownResourceUnitCharge(resource,definition);
+  const raw=props.H0D_Ressource_Charge_Unitaire;
+  const current=raw===null||raw===undefined||String(raw).trim()===""?null:Number(raw);
+  if(known!==null && (current===null||!Number.isFinite(current)||current===0)){
+    props.H0D_Ressource_Charge_Unitaire=String(known);
+  }else if(current===null||!Number.isFinite(current)){
+    props.H0D_Ressource_Charge_Unitaire="0"; // Évite ERROR si charge spéciale à confirmer.
+  }
+  return {known,pending:known===null};
+}
+// API manuelle : aucune mutation automatique des inventaires anciens.
+async function syncResourceChargesForActor(actor=null) {
+  if(!game.user?.isGM)throw new Error("Réservé au MJ.");
+  const selected=actor||(canvas?.tokens?.controlled||[]).find(t=>t.actor)?.actor;
+  if(!selected)throw new Error("Sélectionne le token du PJ ou passe son Actor à la fonction.");
+  let corrected=0,preserved=0,pending=0;
+  for(const item of selected.items||[]){
+    if(item.system?.template!==RESOURCE_TEMPLATE_ID)continue;
+    const api=catalogueApi(game);
+    const def=api?.resolveDefinition?.({
+      key:item.getFlag?.(MODULE_ID,"catalogueKey")||null,name:item.name,kind:"resource"
+    })?.definition||null;
+    const resource=resourceByName.get(norm(item.name))||item;
+    const known=knownResourceUnitCharge(resource,def);
+    if(known===null){pending++;continue;}
+    const existing=item.system?.props?.H0D_Ressource_Charge_Unitaire;
+    if(existing!==undefined&&existing!==null&&String(existing).trim()!==""
+      &&Number.isFinite(Number(existing))&&Number(existing)>0){preserved++;continue;}
+    await item.update({"system.props.H0D_Ressource_Charge_Unitaire":String(known)});
+    corrected++;
+  }
+  ui.notifications?.info(`H0D Charges : ${corrected} corrigée(s), ${preserved} conservée(s), ${pending} spéciale(s) en attente.`);
+  return {corrected,preserved,pending};
+}
+
+async function addExactCatalogueRareToActor(actor,key,quantity){
+  const def=exactRareCatalogueDefinition(key);
+  if(!def)throw new Error("Référence rare absente ou non disponible dans le H0D Catalogue : "+key);
+  const existing=actor.items.find(i=>i.system?.template===RESOURCE_TEMPLATE_ID
+    &&i.getFlag?.(MODULE_ID,"catalogueKey")===key);
+  if(existing){
+    const current=Math.max(0,Math.floor(Number(existing.system?.props?.H0D_Ressource_Quantite)||0));
+    await existing.update({"system.props.H0D_Ressource_Quantite":String(current+quantity)});
+    return existing;
+  }
+  const template=game.items.get(RESOURCE_TEMPLATE_ID);
+  if(!template)throw new Error("Template H0D Ressource absent pour l'objet rare.");
+  const source=cleanEmbeddedItemSource(template.toObject());
+  source.type="equippableItem";
+  source.name=def.name;
+  source.system??={};
+  source.system.template=RESOURCE_TEMPLATE_ID;
+  source.system.props={
+    ...(source.system.props||{}),
+    ...foundry.utils.deepClone(def.props)
+  };
+  source.system.props.H0D_Ressource_Quantite=String(quantity);
+  source.system.props.H0D_Stockage="PJ";
+  const charge=applyKnownResourceCharge(source.system.props,{name:def.name,source:{system:{props:def.props}}},def);
+  if(charge.pending){
+    const note=String(source.system.props.H0D_Ressource_Notes||"");
+    source.system.props.H0D_Ressource_Notes=[note,"Charge spéciale à valider : 0 = valeur technique provisoire."]
+      .filter(Boolean).join(" ");
+  }
+  source.flags??={};
+  source.flags[MODULE_ID]={...(source.flags[MODULE_ID]||{}),looted:true,
+    catalogueKey:key,rareFromMachine:true,chargePending:charge.pending};
+  const [created]=await actor.createEmbeddedDocuments("Item",[source]);
+  return created;
+}
+
 async function addResourceToActor(actor, resourceId, quantity) {
   const resource = resourceLibrary.get(resourceId);
   if (!resource) throw new Error(`Ressource ${resourceId} absente de la bibliothèque H0D`);
@@ -1938,8 +2043,9 @@ async function addResourceToActor(actor, resourceId, quantity) {
   if(canonical.definition?.props){
     // Nouvelle ressource uniquement : Catalogue prioritaire, compendium conservé
     // comme modèle CSB et source d'image. Ne pas toucher aux Items déjà possédés.
-    source.system.props=foundry.utils.deepClone(canonical.definition.props);
+    source.system.props={...source.system.props,...foundry.utils.deepClone(canonical.definition.props)};
   }
+  applyKnownResourceCharge(source.system.props,resource,canonical.definition);
   source.system.props.H0D_Ressource_Quantite = String(quantity);
   source.system.props.H0D_Stockage = "PJ";
   source.flags ??= {};
@@ -2048,11 +2154,12 @@ function getMenace(actor, type) {
 function sortLootEntries(a,b) {
   const order = {
     Arme:1, Armure:2, Munition:3, Objet:4,
-    "Composants préservés":5,
-    "Composants détériorés":6,
-    "Récupération secondaire":7,
-    Ressource:8, Résultat:9,
-    "À arbitrer par le MJ":10,
+    "Composants rares":5,
+    "Composants préservés":6,
+    "Composants détériorés":7,
+    "Récupération secondaire":8,
+    Ressource:9, Résultat:10,
+    "À arbitrer par le MJ":11,
     Autre:20
   };
   const ca = order[a.category] ?? 20;

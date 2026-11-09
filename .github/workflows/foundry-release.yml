@@ -24,6 +24,7 @@ jobs:
           node tests/player-autonomous-loot.mjs
           node tests/player-carcass-claw-pm.mjs
           node tests/component-source-and-ready.mjs
+          node tests/salvage-rules.mjs
           node tests/player-open-button.mjs
           node tests/module-socket-manifest.mjs
           node tests/catalogue-link.mjs
@@ -35,6 +36,7 @@ jobs:
         run: |
           node --check scripts/h0d-tool-order.js
           node --check scripts/h0d-loot.js
+          node --check scripts/h0d-salvage-rules.js
           node --check scripts/h0d-harvest.js
           node --check scripts/h0d-merchant.js
           node --check scripts/h0d-container.js

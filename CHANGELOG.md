@@ -1,3 +1,12 @@
+## v0.6.22 — Récupération par composant et charges
+
+- Tirages de pièces rares par clé Catalogue exacte, à chances propres à chaque pièce et persistés à la génération de la carcasse.
+- Rendement normal de 1 à 6 ressources par composant ; 0 % rare pour blindages ; demi-rendement et demi-chance rare si endommagé.
+- Unicité du résultat : aucun double crédit spécial + matériaux ; pièce détachée à 0 PV sans seconde ressource.
+- Conservation des valeurs par défaut du template Ressource, charges validées appliquées et correction MJ ciblée des charges anciennes.
+- Pas de modification automatique des inventaires, prix, quantités ou cartes de butin déjà persistées.
+- Tests nouveaux et adaptation des tests historiques au refus du double butin.
+
 ## v0.6.21 — Paiement marchand : jetons ou ressources
 - Deux modes par vendeur ; réglage persistant dans son stock, avec compatibilité des anciennes valeurs `valueBarterEnabled`.
 - Débit réel des Jetons de Reconnaissance en premier, complément éventuel en troc ; exclusion stricte des jetons des matières valorisées.
