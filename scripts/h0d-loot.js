@@ -8,6 +8,28 @@ const HARVEST_FLAG = "harvestProfile";
 const SOCKET = `module.${MODULE_ID}`;
 const LOOT_FLAG = "loot";
 const TOKEN_FLAG = "generated";
+// Chaque ouverture reçoit une réponse du MJ actif ; à défaut, une erreur visible
+// remplace l'ancienne impression que le bouton ne fait rien.
+const pendingOpenRequests = new Map();
+const OPEN_RESPONSE_TIMEOUT_MS = 12000;
+function openError(err) {
+  console.error("H0D Loot | erreur du bouton de butin",err);
+  ui.notifications?.error("H0D Loot : ouverture impossible ("+String(err?.message||err)+").");
+}
+function runLootButton() {
+  try { Promise.resolve(openLootForCurrentSelection()).catch(openError); }
+  catch(err) { openError(err); }
+}
+function onOpenResult(data) {
+  const request=pendingOpenRequests.get(data.requestId);
+  if(request){
+    clearTimeout(request.timer);
+    pendingOpenRequests.delete(data.requestId);
+  }
+  const fn=data.ok?ui.notifications?.info:ui.notifications?.warn;
+  fn?.call(ui.notifications,data.message);
+}
+
 
 const MENACE_LOOT = {
   1: "1d3",
@@ -146,7 +168,7 @@ Hooks.once("ready", async () => {
   };
 
   game.h0dMerchant={...merchantAPI};
-  console.log("H0D Loot | v0.6.16 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.17 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
@@ -160,12 +182,12 @@ Hooks.on("getSceneControlButtons", controls => {
     name: "h0dLoot",
     title: game.user?.isGM
       ? "H0D Loot — ouvrir ou générer le butin"
-      : "H0D Loot — ouvrir le butin de la carcasse ou du conteneur ciblé",
+      : "H0D Loot — ouvrir une carcasse, un coffre ou un vendeur ciblé",
     icon: "fa-solid fa-box-open",
     order: H0D_TOOL_ORDER.loot,
     button: true,
     visible: true,
-    onChange: () => openLootForCurrentSelection()
+    onChange: runLootButton
   };
 
   if (game.user?.isGM) {
@@ -376,34 +398,47 @@ async function gmOpenOrGenerate() {
 }
 
 async function playerOpenTargetedLoot() {
-  if (!game.settings.get(MODULE_ID, "playersCanClaim")) {
-    return ui.notifications?.warn("H0D Loot : récupération par les joueurs désactivée.");
-  }
+  if (!game.settings.get(MODULE_ID, "playersCanClaim"))
+    return ui.notifications?.warn("H0D Loot : consultation du butin désactivée pour les joueurs.");
 
-  const targets = Array.from(game.user?.targets ?? []);
-  // Les tokens ciblés sont visibles au joueur même lorsque leurs flags de butin ne lui sont pas accessibles.
-  const controlledWithLoot = (canvas?.tokens?.controlled ?? []).filter(t => t.document.getFlag(MODULE_ID, TOKEN_FLAG) || isContainerToken(t));
-  const candidates = targets.length ? targets : controlledWithLoot;
+  // Aucun getFlag / getMerchant / isContainerToken côté joueur : certains
+  // Actors ne révèlent pas leurs flags aux PJ, et le contrôle échouait sans toast.
+  const targets=Array.from(game.user?.targets??[]);
+  const controlled=Array.from(canvas?.tokens?.controlled??[]);
+  const candidates=targets.length?targets:controlled;
+  if(!candidates.length)
+    return ui.notifications?.warn("H0D Loot : cible une machine, un coffre ou un vendeur avec T, puis clique sur H0D Loot.");
+  const gm=primaryGM();
+  if(!gm)
+    return ui.notifications?.warn("H0D Loot : aucun MJ connecté pour ouvrir le stock protégé.");
 
-  if (!candidates.length) {
-    return ui.notifications?.warn("H0D Loot : cible une carcasse ou un conteneur (T), puis reclique sur H0D Loot.");
-  }
-
-  let opened = 0;
-  for (const token of candidates) {
-    if (isContainerToken(token)) {
-      await openContainerForPlayer(token.document);
-      opened++;
+  let sent=0;
+  for(const token of candidates){
+    const tokenUuid=token?.document?.uuid;
+    if(!tokenUuid){
+      ui.notifications?.warn("H0D Loot : token sans identifiant Foundry, impossible à ouvrir.");
       continue;
     }
-    // Lecture ET publication déléguées automatiquement au MJ actif.
-    // La récupération du butin ne nécessite aucune permission de lecture sur l'Actor de la carcasse.
-    if (!primaryGM()) return ui.notifications?.warn("H0D Loot : un MJ connecté est nécessaire pour ouvrir la carcasse.");
-    game.socket.emit(SOCKET, {type:"carcass-open",userId:game.user.id,tokenUuid:token.document.uuid});
-    opened++;
+    const requestId=foundry.utils.randomID();
+    const timer=setTimeout(()=>{
+      if(!pendingOpenRequests.has(requestId))return;
+      pendingOpenRequests.delete(requestId);
+      ui.notifications?.warn("H0D Loot : aucune réponse du client MJ pour "+(token.name||"le token")+". Vérifie que H0D Loot est actif et rechargé côté MJ.");
+    },OPEN_RESPONSE_TIMEOUT_MS);
+    pendingOpenRequests.set(requestId,{timer,tokenUuid});
+    try {
+      // Le MJ actif décide du type réel du token : machine, coffre ou vendeur.
+      // Il publie la carte et répond automatiquement, sans validation manuelle.
+      game.socket.emit(SOCKET,{type:"carcass-open",userId:game.user.id,
+        tokenUuid,requestId});
+      sent++;
+    }catch(error){
+      clearTimeout(timer);
+      pendingOpenRequests.delete(requestId);
+      openError(error);
+    }
   }
-
-  if (!opened) ui.notifications?.warn("H0D Loot : aucune carcasse avec butin ni conteneur ciblé.");
+  if(!sent)ui.notifications?.warn("H0D Loot : aucun token valide à consulter.");
 }
 
 async function generateControlled() {
@@ -1472,8 +1507,8 @@ async function onSocketMessage(data) {
   if (!data || typeof data !== "object") return;
   if (data.type === "carcass-open" && isPrimaryGM()) await openCarcassForPlayer(data);
   if (data.type === "claim" && isPrimaryGM()) await processClaim(data);
-  if (data.type === "carcass-open-result" && data.userId === game.user.id && !data.ok)
-    ui.notifications?.warn(data.message);
+  if (data.type === "carcass-open-result" && data.userId === game.user.id)
+    onOpenResult(data);
   if (data.type === "claim-result" && data.userId === game.user.id) {
     const fn = data.ok ? ui.notifications?.info : ui.notifications?.warn;
     fn?.call(ui.notifications, data.message);
@@ -1481,19 +1516,25 @@ async function onSocketMessage(data) {
 }
 
 async function openCarcassForPlayer(data) {
-  const respond = (ok,message) => game.socket.emit(SOCKET,{type:"carcass-open-result",userId:data.userId,ok,message});
+  const respond = (ok,message) => game.socket.emit(SOCKET,{type:"carcass-open-result",
+    userId:data.userId,requestId:data.requestId,ok,message});
   try {
     const user=game.users.get(data.userId);
-    if(!user || user.isGM) return;
+    if(!user || user.isGM)return;
     const tokenDoc=await resolveTokenDocument(data.tokenUuid);
     if(!tokenDoc || tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene))
       return respond(false,"H0D Loot : carcasse inaccessible sur cette scène.");
     // Le PJ peut ne pas avoir accès aux flags marchand du PNJ : routage décidé par le MJ.
-    if(isContainerToken({actor:tokenDoc.actor}))return openMerchantForPlayerOnGM(data);
+    if(isContainerToken({actor:tokenDoc.actor})){
+      const opened=await openMerchantForPlayerOnGM(data);
+      if(!opened)return respond(false,"H0D Loot : le stock du coffre ou vendeur n'a pas pu être publié.");
+      return respond(true,"H0D Loot : stock de "+tokenDoc.actor.name+" ouvert dans le chat.");
+    }
     const loot=await getTokenLoot(tokenDoc,{migrate:true});
     if(!loot?.items) return respond(false,"H0D Loot : aucun butin généré sur cette carcasse. Le MJ doit d'abord générer son butin.");
     // Carte privée émise par le MJ et partagée avec le PJ : aucun écran de validation.
     await surfaceTokenLoot(tokenDoc,loot,{privateToUser:true,recipientUserId:user.id});
+    respond(true,"H0D Loot : butin de "+(tokenDoc.actor?.name||"la carcasse")+" ouvert dans le chat.");
   }catch(error){
     console.error("H0D Loot | ouverture de carcasse depuis le compte joueur",error);
     respond(false,"H0D Loot : impossible d'ouvrir le butin ("+(error?.message||error)+").");
