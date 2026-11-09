@@ -852,7 +852,7 @@ function findRecoverableMachineParts(actor) {
       if(pm){
         entries.push({
           entryId:foundry.utils.randomID(),kind:"resource",resource:pm,quantity:1,
-          category:"Ressource",note:"Recyclage de "+item.name+" : 1 PM",label:item.name
+          note:"Recyclage de "+item.name+" : 1 PM",label:item.name
         });
         continue;
       }
