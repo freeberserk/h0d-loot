@@ -1,4 +1,9 @@
-## v0.6.15 — Ordre stable des outils et routage du marchand
+## v0.6.16 — Publication du correctif ordre des outils
+
+- Version dédiée au correctif des ordres d'affichage distincts et au routage marchand sur client MJ.
+- La version 0.6.15 existait déjà avant l'intégration ; la 0.6.16 garantit un nouvel artefact téléchargeable par Foundry.
+
+## v0.6.16 — Ordre stable des outils et routage du marchand
 
 - Remplace les ordres dynamiques calculés depuis la longueur des outils Foundry par six entiers constants distincts.
 - Répare la collision d'ordres entre les actions Loot et Commerce et stabilise leur ordre pour les joueurs comme pour les MJ.

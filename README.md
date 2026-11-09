@@ -1,4 +1,8 @@
-## v0.6.15 — Ordre stable des outils Foundry
+## v0.6.16 — Mise à jour réellement publiée
+
+Les modifications d'ordre stable des outils et du routage marchand sont publiées sous 0.6.16. Le tag 0.6.15 était déjà utilisé par une version antérieure et ne pouvait pas servir à distribuer ces changements via le pipeline existant.
+
+## v0.6.16 — Ordre stable des outils Foundry
 
 Les six commandes H0D des barres de scène ont désormais des **ordres numériques fixes et distincts** (200–250), définis dans `scripts/h0d-tool-order.js`. La création d'un outil ne dépend plus de `Object.keys(tools).length`, qui faisait dépendre le classement de l'ordre d'enregistrement des hooks et produisait des collisions (notamment entre Loot et Commerce).
 

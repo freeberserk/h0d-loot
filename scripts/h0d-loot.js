@@ -146,7 +146,7 @@ Hooks.once("ready", async () => {
   };
 
   game.h0dMerchant={...merchantAPI};
-  console.log("H0D Loot | v0.6.15 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
+  console.log("H0D Loot | v0.6.16 prêt", {resources: resourceLibrary.size, compendium: compendiumStatus});
 });
 
 Hooks.on("renderActorSheet", installMerchantSheetButton);
