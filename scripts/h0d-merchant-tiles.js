@@ -1,3 +1,4 @@
+import {H0D_TOOL_ORDER} from "./h0d-tool-order.js";
 // H0D Commerce — vitrines de marchand liées à des tuiles Foundry v14.
 // Les joueurs ne lisent jamais les flags de l'Actor : uniquement un instantané
 // public et limité, enregistré sur le TileDocument par le MJ.
@@ -306,7 +307,7 @@ export function registerMerchantTileHooks() {
       name:"h0dMerchantVisit",
       title:"H0D Commerce — consulter les marchands de la scène",
       icon:"fa-solid fa-store",
-      order:Object.keys(tokenTools).length+1,
+      order:H0D_TOOL_ORDER.merchantVisit,
       button:true,visible:true,
       onChange:()=>openAvailableMerchantStorefronts().catch(err=>ui.notifications?.error?.(err.message))
     };
@@ -317,7 +318,7 @@ export function registerMerchantTileHooks() {
       name:"h0dMerchantTile",
       title:"H0D Commerce — lier la tuile sélectionnée à un marchand",
       icon:"fa-solid fa-store",
-      order:Object.keys(tools).length+1,
+      order:H0D_TOOL_ORDER.merchantTile,
       button:true,visible:true,
       onChange:() => linkSelectedMerchantTile().catch(err=>ui.notifications?.warn?.(err.message))
     };

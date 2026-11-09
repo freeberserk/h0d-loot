@@ -1,6 +1,7 @@
+import {H0D_TOOL_ORDER} from "./h0d-tool-order.js";
 import {merchantAPI,installMerchantSheetButton} from "./h0d-merchant.js";
 import {catalogueApi,resolveCatalogueResource} from "./h0d-catalogue-link.js";
-import {isContainerToken,openContainerForGM,openContainerForPlayer,openMerchantForPlayerOnGM,registerContainerSupport} from "./h0d-container.js";
+import {isContainerToken,openContainerForGM,openContainerForPlayer,registerContainerSupport} from "./h0d-container.js";
 import {normalizeHarvestProfile,selectHarvestResults,reconcileHarvestLoot,HARVEST_KINDS,HARVEST_LABELS} from "./h0d-harvest.js";
 const MODULE_ID = "h0d-loot";
 const HARVEST_FLAG = "harvestProfile";
@@ -159,9 +160,9 @@ Hooks.on("getSceneControlButtons", controls => {
     name: "h0dLoot",
     title: game.user?.isGM
       ? "H0D Loot — ouvrir ou générer le butin"
-      : "H0D Loot — ouvrir la carcasse, le coffre ou le vendeur ciblé",
+      : "H0D Loot — ouvrir le butin de la carcasse ou du conteneur ciblé",
     icon: "fa-solid fa-box-open",
-    order: Object.keys(tools).length + 1,
+    order: H0D_TOOL_ORDER.loot,
     button: true,
     visible: true,
     onChange: () => openLootForCurrentSelection()
@@ -172,7 +173,7 @@ Hooks.on("getSceneControlButtons", controls => {
       name:"h0dLootHarvest",
       title:"H0D Loot — définir les ressources récupérables après scan (MJ)",
       icon:"fa-solid fa-paw",
-      order:Object.keys(tools).length + 2,
+      order:H0D_TOOL_ORDER.harvest,
       button:true,visible:true,
       onChange:()=>configureHarvestForSelection()
     };
@@ -180,7 +181,7 @@ Hooks.on("getSceneControlButtons", controls => {
       name:"h0dMerchant",
       title:"H0D Commerce — stock marchand du token sélectionné (MJ)",
       icon:"fa-solid fa-store",
-      order:Object.keys(tools).length + 4,
+      order:H0D_TOOL_ORDER.merchant,
       button:true,visible:true,
       onChange:()=>{
         const tokens=canvas?.tokens?.controlled||[];
@@ -192,7 +193,7 @@ Hooks.on("getSceneControlButtons", controls => {
       name: "h0dLootRegenerate",
       title: "H0D Loot — régénérer explicitement le butin sélectionné",
       icon: "fa-solid fa-rotate",
-      order: Object.keys(tools).length + 3,
+      order: H0D_TOOL_ORDER.regenerate,
       button: true,
       visible: true,
       onChange: () => regenerateControlledLoot()
@@ -385,7 +386,7 @@ async function playerOpenTargetedLoot() {
   const candidates = targets.length ? targets : controlledWithLoot;
 
   if (!candidates.length) {
-    return ui.notifications?.warn("H0D Loot : cible une carcasse, un coffre ou un vendeur (T), puis reclique sur H0D Loot.");
+    return ui.notifications?.warn("H0D Loot : cible une carcasse ou un conteneur (T), puis reclique sur H0D Loot.");
   }
 
   let opened = 0;
@@ -402,7 +403,7 @@ async function playerOpenTargetedLoot() {
     opened++;
   }
 
-  if (!opened) ui.notifications?.warn("H0D Loot : aucun butin ni vendeur ciblé.");
+  if (!opened) ui.notifications?.warn("H0D Loot : aucune carcasse avec butin ni conteneur ciblé.");
 }
 
 async function generateControlled() {
@@ -1487,8 +1488,6 @@ async function openCarcassForPlayer(data) {
     const tokenDoc=await resolveTokenDocument(data.tokenUuid);
     if(!tokenDoc || tokenDoc.hidden || (user.viewedScene && tokenDoc.parent?.id !== user.viewedScene))
       return respond(false,"H0D Loot : carcasse inaccessible sur cette scène.");
-    // Le compte joueur peut ne pas voir les flags du PNJ. Le MJ route vers son stock vendeur.
-    if(isContainerToken({actor:tokenDoc.actor}))return openMerchantForPlayerOnGM(data);
     const loot=await getTokenLoot(tokenDoc,{migrate:true});
     if(!loot?.items) return respond(false,"H0D Loot : aucun butin généré sur cette carcasse. Le MJ doit d'abord générer son butin.");
     // Carte privée émise par le MJ et partagée avec le PJ : aucun écran de validation.

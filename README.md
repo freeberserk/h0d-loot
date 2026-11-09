@@ -1,3 +1,12 @@
+## v0.6.15 — Ordre stable des outils Foundry
+
+Les six commandes H0D des barres de scène ont désormais des **ordres numériques fixes et distincts** (200–250), définis dans `scripts/h0d-tool-order.js`. La création d'un outil ne dépend plus de `Object.keys(tools).length`, qui faisait dépendre le classement de l'ordre d'enregistrement des hooks et produisait des collisions (notamment entre Loot et Commerce).
+
+- Tokens : butin (200), prélèvement MJ (210), régénération MJ (220), gestion marchand MJ (230), consulter les marchands (240).
+- Tuiles : lier un marchand MJ (250).
+- Les droits des joueurs / MJ, comportements, actions et données de butin restent inchangés.
+- Test dédié : unicité et câblage des ordres. Aucune migration des Actors, Tokens ou stocks.
+
 ## v0.6.15 — Commerce et troc par les PJ depuis le token d'un vendeur
 
 Les PNJ utilisant un template Créature ou PJ peuvent également être **vendeurs H0D** : sélectionne le token en MJ, ouvre l'outil **H0D Commerce**, active « Rôle Marchand », renseigne les offres et coche **« Troc automatique par valeur »** si ce vendeur accepte cette règle facultative. Le coffre Conteneur fonctionne toujours. Pour ouvrir la boutique, un joueur **cible le token vendeur avec T**, puis clique H0D Loot. Aucune tuile ni permission de lecture des flags secrets du PNJ n'est nécessaire ; le MJ connecté publie automatiquement la carte privée.
