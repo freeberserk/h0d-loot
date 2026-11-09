@@ -28,6 +28,7 @@ jobs:
           node tests/module-socket-manifest.mjs
           node tests/catalogue-link.mjs
           node tests/vendor-commerce.mjs
+          node tests/payment-modes.mjs
           node tests/trade-live-dialog.mjs
           node tests/trade-dialog-interaction.mjs
       - name: Validate JavaScript and manifest
