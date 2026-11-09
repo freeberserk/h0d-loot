@@ -85,7 +85,9 @@ const parts=funcs({items:[
 ]});
 assert.deepEqual(parts.slice(0,2).map(x=>x.resource.id),["pm","cell"]);
 assert.equal(parts[2].kind,"machine-piece","Une référence invalide reste non convertie.");
-assert.equal(funcs({items:[part("Griffe","Detache",0)]})[0].resource.name,"Plaques métalliques");
+const deteriorated=funcs({items:[part("Griffe","Detache",0)]});
+assert.equal(deteriorated[0].kind,"machine-piece","Pièce détachée à 0 PV encore dégradée.");
+assert.equal(deteriorated[1].resource.name,"Plaques métalliques","Ressource secondaire conservée.");
 
 const player=slice("async function playerOpenTargetedLoot","async function generateControlled");
 assert.match(player,/type:"carcass-open"/,"Player requests carcass through socket");
