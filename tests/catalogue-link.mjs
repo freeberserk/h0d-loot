@@ -35,7 +35,8 @@ assert.equal(merchantCatalogueDefinitions(game).source,"Equipment Builder (secou
 assert.equal(merchantCatalogueDefinitions(game).definitions.length,1);
 const lootSource=readFileSync(new URL("../scripts/h0d-loot.js",import.meta.url),"utf8");
 const merchantSource=readFileSync(new URL("../scripts/h0d-merchant.js",import.meta.url),"utf8");
-assert(lootSource.includes("source.system.props=foundry.utils.deepClone(canonical.definition.props)"));
+assert(lootSource.includes("source.system.props={...source.system.props,...foundry.utils.deepClone(canonical.definition.props)}"),"Les propriétés CSB sont conservées lorsque le Catalogue les complète.");
+assert(lootSource.includes("applyKnownResourceCharge(source.system.props,resource,canonical.definition)"),"Charge unitaire recalculée sur les nouveaux Items.");
 assert(lootSource.includes("catalogueKey:canon.key??null"));
 assert(lootSource.includes("equipmentCatalogueAudit:()=>("));
 assert(merchantSource.includes("merchantCatalogueDefinitions(game)"));
