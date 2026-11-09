@@ -31,6 +31,7 @@ export function previewBarterOffer(items,amounts,price){
  */
 export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="resources-only"}){
   const price=offer.price;
+  const priceUnit=offer.currency==="ressources"?"points de valeur":"jetons";
   if(!Number.isSafeInteger(price)||price<0)throw new Error("Prix du vendeur invalide.");
   const tokenPlan=paymentMode==="tokens-first"?recognitionTokenPayment(actor,price):
     {used:0,remaining:price,lines:[]};
@@ -73,7 +74,7 @@ export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="
   content.innerHTML=`
     <div class="h0d-trade-heading">
       <div><h3>Troc avec ${escape(vendorName)}</h3><small>Lot : ${escape(offer.name)}</small></div>
-      <div class="h0d-trade-price"><small>Prix demandé</small><strong>${price} jetons</strong></div>
+      <div class="h0d-trade-price"><small>Prix demandé</small><strong>${price} ${priceUnit}</strong></div>
     </div>
     ${paymentMode==="tokens-first"?`<p class="h0d-trade-hint">Jetons de Reconnaissance prélevés en priorité : <strong>${tokenPlan.used}</strong>. Complément en ressources : <strong>${remaining}</strong> point(s) de valeur.</p>`:""}
     <div class="h0d-trade-section-title">
@@ -85,7 +86,7 @@ export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="
     <p class="h0d-trade-hint">${escape(automaticInfo)}</p>
     <div class="h0d-trade-items">${lines||'<p>Aucun complément en ressources requis.</p>'}</div>
     <div class="h0d-trade-summary">
-      <div class="h0d-trade-total"><span>Valeur offerte</span><strong data-h0d-trade-total>0 / ${remaining} jetons</strong></div>
+      <div class="h0d-trade-total"><span>Valeur offerte</span><strong data-h0d-trade-total>0 / ${remaining} ${priceUnit}</strong></div>
       <progress max="${Math.max(1,remaining)}" value="0" data-h0d-trade-progress aria-label="Progression de l'offre de troc"></progress>
       <div class="h0d-trade-status" role="status" aria-live="polite" data-h0d-trade-status></div>
       <label class="h0d-trade-overpay" data-h0d-trade-ack-row hidden>
@@ -125,7 +126,7 @@ export async function openValueTradeDialog({actor,vendorName,offer,paymentMode="
         if(confirm)confirm.disabled=true;
         return;
       }
-      summary.textContent=quote.total+" / "+remaining+" jetons";
+      summary.textContent=quote.total+" / "+remaining+" "+priceUnit;
       progress.value=remaining===0?1:Math.min(remaining,quote.total);
       items.forEach((item,i)=>{
         root.querySelector(`[data-h0d-trade-subtotal="${i}"]`).textContent=quote.subtotals[i]+" jetons";
