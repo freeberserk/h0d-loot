@@ -16,7 +16,7 @@ const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
 const pm={id:"pm",name:"Plaques métalliques",source:{img:"icons/svg/item-bag.svg",
   system:{props:{H0D_Ressource_Type:"Plaque"}}}};
 const energy={id:"cell",name:"Cellule d’énergie faible",source:{img:"icons/svg/item-bag.svg",
-  system:{props:{H0D_Ressource_Type:"Cellule"}}};
+  system:{props:{H0D_Ressource_Type:"Cellule"}}}};
 const resourceByName=new Map([[norm(pm.name),pm],[norm(energy.name),energy]]);
 const genericMachineResourceByName=name=>resourceByName.get(norm(name))??null;
 const randomId=()=>"entry-new";
