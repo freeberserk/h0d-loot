@@ -2,13 +2,17 @@ import {merchantCatalogueDefinitions} from "./h0d-catalogue-link.js";
 // H0D Commerce — Stock marchand optionnel, indépendant des Items embarqués.
 // Aucun achat ni prélèvement automatique dans cette première étape.
 const NS="h0d-loot", FLAG="merchant";
+const PAYMENT_MODES=Object.freeze(["tokens-first","resources-only"]);
 const clone=v=>foundry.utils.deepClone(v);
 const esc=v=>foundry.utils.escapeHTML(String(v??""));
 function ensureGM(){if(!game.user?.isGM)throw new Error("H0D Commerce : réservé au MJ.");}
 function actorOf(value){const actor=typeof value==="string"?game.actors.get(value):value;if(!actor||actor.documentName!=="Actor")throw new Error("Actor marchand introuvable.");return actor;}
 function merchantState(actor){
  const state=clone(actor.getFlag(NS,FLAG)||{enabled:false,offers:[],buyerId:null,valueBarterEnabled:false});
- state.valueBarterEnabled=state.valueBarterEnabled===true;
+ // Compatibilité : un ancien vendeur actif conserve le troc en ressources uniquement.
+ state.paymentMode=PAYMENT_MODES.includes(state.paymentMode)?state.paymentMode:
+   (state.valueBarterEnabled===true?"resources-only":null);
+ state.valueBarterEnabled=state.paymentMode!==null;
  // Lecture des anciens stocks : quantité non définie = 1, sans réécriture immédiate.
  // Les conditionnements historiques (Senn vend notamment un demi-lot de flèches) viennent du Catalogue exact.
  const catalogue=typeof game!=="undefined"&&game?.modules?.get("h0d-catalogue")?.active?game.h0dCatalogue:null;
@@ -44,7 +48,15 @@ export async function setMerchantRole(actorValue,enabled){
 export function getMerchant(actorValue){return merchantState(actorOf(actorValue));}
 export async function setValueBarterEnabled(actorValue,enabled){
  ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
+ state.paymentMode=enabled===true?(state.paymentMode||"resources-only"):null;
  state.valueBarterEnabled=enabled===true;await actor.setFlag(NS,FLAG,state);return clone(state);
+}
+export async function setPaymentMode(actorValue,mode){
+ ensureGM();
+ if(!PAYMENT_MODES.includes(mode))throw new Error("Mode de paiement marchand invalide.");
+ const actor=actorOf(actorValue),state=merchantState(actor);
+ state.paymentMode=mode;state.valueBarterEnabled=true;
+ await actor.setFlag(NS,FLAG,state);return clone(state);
 }
 export async function assignMerchantBuyer(actorValue,buyerValue){
  ensureGM();const actor=actorOf(actorValue),state=merchantState(actor);
@@ -72,6 +84,8 @@ export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03
  }));
  const actor=actorOf(actorValue),state=merchantState(actor);
  state.enabled=true;state.offers=offers;state.stockKey=key;
+ // Import volontaire de Senn : jetons prioritaires ; aucune migration implicite des anciens stocks.
+ state.paymentMode="tokens-first";state.valueBarterEnabled=true;
  await actor.setFlag(NS,FLAG,state);return clone(state);
 }
 
@@ -133,9 +147,12 @@ export async function openMerchant(actorValue){
  }).map(([label,defs])=>`<optgroup label="${esc(label)}">${defs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)}</option>`).join("")}</optgroup>`).join("");
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
-  content:`<p>Stock commercial hors encombrement. Le joueur peut troquer directement depuis le token si tu actives la règle ci-dessous.</p>
-   <div class="form-group"><label>Troc automatique par valeur</label><input type="checkbox" name="valueBarterEnabled" ${state.valueBarterEnabled?"checked":""}></div>
-   <p><small><strong>Règle optionnelle du vendeur :</strong> 1 point de « Valeur / troc » (ou « Valeur unitaire » d’une ressource) = 1 jeton de prix. Seuls les prix entiers en jetons sont échangeables. Aucune monnaie n’est créée. Le MJ n’a pas de confirmation à donner par transaction.</small></p>
+  content:`<p>Stock commercial hors encombrement. Choisis une règle de paiement pour ce marchand ; les prix des articles restent ceux du stock.</p>
+   <div class="form-group"><label>Mode de paiement</label><select name="paymentMode" aria-label="Mode de paiement">
+     <option value="tokens-first" ${state.paymentMode==="tokens-first"?"selected":""}>Jetons prioritaires + ressources complémentaires</option>
+     <option value="resources-only" ${state.paymentMode!=="tokens-first"?"selected":""}>Ressources uniquement</option>
+   </select></div>
+   <p><small>Les Jetons de Reconnaissance sont prélevés directement en premier dans le premier mode. Le solde éventuel est couvert par la valeur de troc des ressources (sans taux de conversion universel). Un marchand existant conserve son ancien comportement tant que son mode n'est pas réenregistré.</small></p>
    <div class="form-group"><label>Rôle Marchand</label><input type="checkbox" name="enabled" ${state.enabled?"checked":""}></div>
    <div class="form-group"><label>Fiche acheteur</label><select name="buyer">${options}</select></div>
    <div style="max-height:55vh;overflow-y:auto;padding:5px">
@@ -165,7 +182,7 @@ export async function openMerchant(actorValue){
   await setMerchantOffers(actor,offers);
  }
  await assignMerchantBuyer(actor,choice.buyer||null);
- await setValueBarterEnabled(actor,choice.valueBarterEnabled===true||choice.valueBarterEnabled==="on");
+ if(choice.operation!=="import")await setPaymentMode(actor,String(choice.paymentMode||"resources-only"));
  await setMerchantRole(actor,choice.operation==="import"?true:choice.enabled===true||choice.enabled==="on");
  if(choice.operation==="publish")await publishMerchant(actor);
  actor.sheet?.render?.(true);
@@ -202,4 +219,4 @@ export function installMerchantSheetButton(app,html){
  button.addEventListener("click",()=>openMerchant(actor).catch(e=>ui.notifications.error(e.message)));
  header.insertBefore(button,header.querySelector(".window-close")||null);
 }
-export const merchantAPI={getMerchant,setMerchantRole,setValueBarterEnabled,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant};
+export const merchantAPI={getMerchant,setMerchantRole,setValueBarterEnabled,setPaymentMode,assignMerchantBuyer,setMerchantOffers,importCatalogueStock,openMerchant,publishMerchant};
