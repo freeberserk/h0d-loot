@@ -207,13 +207,18 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   html.querySelectorAll("[data-h0d-loot-action]").forEach(button => {
     button.addEventListener("click", async event => {
       event.preventDefault();
-      const action = button.dataset.h0dLootAction;
-      if (action === "take-one" || action === "take-all-row") {
-        const entryId = button.dataset.entryId;
-        const quantity = action === "take-one" ? 1 : "all";
-        await requestClaim(message.id, entryId, quantity);
-      } else if (action === "take-all") {
-        await requestClaim(message.id, null, "all-card");
+      try {
+        const action = button.dataset.h0dLootAction;
+        if (action === "take-one" || action === "take-all-row") {
+          const entryId = button.dataset.entryId;
+          const quantity = action === "take-one" ? 1 : "all";
+          await requestClaim(message.id, entryId, quantity);
+        } else if (action === "take-all") {
+          await requestClaim(message.id, null, "all-card");
+        }
+      } catch(error) {
+        console.error("H0D Loot | clic de récupération",error);
+        ui.notifications?.warn("H0D Loot : récupération impossible ("+(error?.message||error)+").");
       }
     });
   });
@@ -1346,8 +1351,8 @@ async function requestClaim(messageId, entryId, quantity) {
   else {
     const gm = primaryGM();
     if (!gm) return ui.notifications?.error("H0D Loot : aucun MJ actif pour sécuriser le transfert.");
+    // Pas de "demande au MJ" ni de confirmation prématurée : notifier après traitement réel.
     game.socket.emit(SOCKET, payload);
-    ui.notifications?.info(`H0D Loot : récupération vers ${actor.name} en cours…`);
   }
 }
 
@@ -1437,7 +1442,7 @@ async function chooseRecipientActor() {
     return chooseRecipientFromList(worldOwned, "H0D Loot — quel PJ reçoit le butin ?");
   }
 
-  ui.notifications?.warn("H0D Loot : aucun PJ contrôlé ou possédé par ce joueur.");
+  ui.notifications?.warn("H0D Loot : aucun PJ accessible. Le MJ doit attribuer les droits Propriétaire au compte joueur sur son Actor PJ.");
   return null;
 }
 
