@@ -12,45 +12,45 @@ export function merchantEditorRows(offers,startIndex=0){
    const quantity=offer.quantity??1;
    const notes=offer.notes||"";
    const pack=Number(offer.perPurchase)>1?"Lot de "+offer.perPurchase+" unités":"";
-   return \`<article class="h0d-merchant-offer" data-h0d-offer-index="\${i}">
+   return `<article class="h0d-merchant-offer" data-h0d-offer-index="${i}">
      <div class="h0d-merchant-offer-summary">
        <div class="h0d-merchant-offer-copy">
-         <strong data-h0d-preview-name>\${esc(offer.name)}</strong>
-         <small data-h0d-preview-note>\${esc(notes)}</small>
-         \${pack?'<span class="h0d-merchant-pack">'+esc(pack)+"</span>":""}
+         <strong data-h0d-preview-name>${esc(offer.name)}</strong>
+         <small data-h0d-preview-note>${esc(notes)}</small>
+         ${pack?'<span class="h0d-merchant-pack">'+esc(pack)+"</span>":""}
        </div>
-       <span class="h0d-merchant-quantity">Stock : <b data-h0d-preview-quantity>\${esc(quantity)}</b></span>
-       <strong class="h0d-merchant-price" data-h0d-preview-price>\${esc(priceLabel(offer))}</strong>
+       <span class="h0d-merchant-quantity">Stock : <b data-h0d-preview-quantity>${esc(quantity)}</b></span>
+       <strong class="h0d-merchant-price" data-h0d-preview-price>${esc(priceLabel(offer))}</strong>
        <div class="h0d-merchant-offer-actions">
-         <button type="button" data-h0d-offer-action="edit" title="Modifier cette offre" aria-label="Modifier \${esc(offer.name)}"><i class="fa-solid fa-pen"></i></button>
-         <button type="button" data-h0d-offer-action="duplicate" title="Dupliquer cette offre" aria-label="Dupliquer \${esc(offer.name)}"><i class="fa-solid fa-copy"></i></button>
-         <button type="button" data-h0d-offer-action="remove" title="Supprimer cette offre (annulable)" aria-label="Supprimer \${esc(offer.name)}"><i class="fa-solid fa-trash"></i></button>
+         <button type="button" data-h0d-offer-action="edit" title="Modifier cette offre" aria-label="Modifier ${esc(offer.name)}"><i class="fa-solid fa-pen"></i></button>
+         <button type="button" data-h0d-offer-action="duplicate" title="Dupliquer cette offre" aria-label="Dupliquer ${esc(offer.name)}"><i class="fa-solid fa-copy"></i></button>
+         <button type="button" data-h0d-offer-action="remove" title="Supprimer cette offre (annulable)" aria-label="Supprimer ${esc(offer.name)}"><i class="fa-solid fa-trash"></i></button>
        </div>
      </div>
      <div class="h0d-merchant-offer-edit" data-h0d-edit hidden>
-       <label>Nom de la marchandise<input name="name_\${i}" value="\${esc(offer.name)}"></label>
+       <label>Nom de la marchandise<input name="name_${i}" value="${esc(offer.name)}"></label>
        <div class="h0d-merchant-offer-fields">
-         <label>Quantité<input type="number" name="quantity_\${i}" min="0" step="1" value="\${esc(quantity)}" placeholder="1"></label>
-         <label>Prix<input type="number" name="price_\${i}" min="0" step="any" value="\${offer.price===null||offer.price===undefined?"":esc(offer.price)}" placeholder="À définir"></label>
-         <label>Monnaie<input name="currency_\${i}" value="\${esc(offer.currency||"jetons")}"></label>
+         <label>Quantité<input type="number" name="quantity_${i}" min="0" step="1" value="${esc(quantity)}" placeholder="1"></label>
+         <label>Prix<input type="number" name="price_${i}" min="0" step="any" value="${offer.price===null||offer.price===undefined?"":esc(offer.price)}" placeholder="À définir"></label>
+         <label>Monnaie<input name="currency_${i}" value="${esc(offer.currency||"jetons")}"></label>
        </div>
-       <label>Note / description<textarea name="notes_\${i}" rows="2">\${esc(notes)}</textarea></label>
-       <small>Référence : \${esc(offer.reference||"aucune")} · Conditionnement : \${esc(offer.perPurchase||1)} unité(s) par achat</small>
+       <label>Note / description<textarea name="notes_${i}" rows="2">${esc(notes)}</textarea></label>
+       <small>Référence : ${esc(offer.reference||"aucune")} · Conditionnement : ${esc(offer.perPurchase||1)} unité(s) par achat</small>
      </div>
-     <input type="checkbox" name="remove_\${i}" class="h0d-merchant-remove-flag" tabindex="-1" aria-hidden="true">
-   </article>\`;
+     <input type="checkbox" name="remove_${i}" class="h0d-merchant-remove-flag" tabindex="-1" aria-hidden="true">
+   </article>`;
  }).join("");
 }
 
 export function merchantEditorContent({actorName,state,catalogueSource,builderOptions,builderAvailable}){
  const count=offerCount(state.offers||[]);
  const selection=state.paymentMode==="tokens-first"?"tokens-first":"resources-only";
- return \`<div class="h0d-merchant-editor" data-h0d-merchant-editor>
+ return `<div class="h0d-merchant-editor" data-h0d-merchant-editor>
    <header class="h0d-merchant-heading">
-     <div><h2><i class="fa-solid fa-store"></i> \${esc(actorName)}</h2>
+     <div><h2><i class="fa-solid fa-store"></i> ${esc(actorName)}</h2>
        <small>Gestion du stock marchand · Hors encombrement des PJ</small></div>
      <span class="h0d-merchant-activity" data-h0d-merchant-activity>
-       \${state.enabled?"● Marchand actif":"○ Marchand inactif"}
+       ${state.enabled?"● Marchand actif":"○ Marchand inactif"}
      </span>
    </header>
    <nav class="h0d-merchant-tabs" aria-label="Sections du marchand">
@@ -59,7 +59,7 @@ export function merchantEditorContent({actorName,state,catalogueSource,builderOp
    </nav>
    <section data-h0d-merchant-panel="stock" class="h0d-merchant-panel">
      <div class="h0d-merchant-toolbar">
-       <div class="h0d-merchant-stock-heading"><h3>Marchandises <span data-h0d-merchant-count>\${count}</span></h3>
+       <div class="h0d-merchant-stock-heading"><h3>Marchandises <span data-h0d-merchant-count>${count}</span></h3>
          <small>Les prix non renseignés ne sont pas des articles gratuits.</small></div>
        <button type="button" data-h0d-merchant-action="toggle-add"><i class="fa-solid fa-plus"></i> Ajouter un article</button>
      </div>
@@ -71,9 +71,9 @@ export function merchantEditorContent({actorName,state,catalogueSource,builderOp
          <button type="button" data-h0d-add-tab="manual">Saisie rapide par référence</button>
        </div>
        <div data-h0d-add-panel-kind="catalogue">
-         <label>Référence de \${esc(catalogueSource)}
+         <label>Référence de ${esc(catalogueSource)}
            <select data-h0d-add-reference aria-label="Article du catalogue">
-             <option value="">— Choisir une référence —</option>\${builderOptions}</select>
+             <option value="">— Choisir une référence —</option>${builderOptions}</select>
          </label>
        </div>
        <div data-h0d-add-panel-kind="manual" hidden>
@@ -88,26 +88,26 @@ export function merchantEditorContent({actorName,state,catalogueSource,builderOp
        </div>
        <label>Nom personnalisé (facultatif)<input data-h0d-add-name placeholder="Laisser vide pour le nom canonique"></label>
        <label>Note (facultative)<textarea data-h0d-add-note rows="2"></textarea></label>
-       <button type="button" data-h0d-merchant-action="add" \${builderAvailable?"":"disabled"}><i class="fa-solid fa-plus"></i> Ajouter au stock</button>
-       \${builderAvailable?"":"<small>H0D Catalogue ou Equipment Builder est indisponible : ajout désactivé.</small>"}
+       <button type="button" data-h0d-merchant-action="add" ${builderAvailable?"":"disabled"}><i class="fa-solid fa-plus"></i> Ajouter au stock</button>
+       ${builderAvailable?"":"<small>H0D Catalogue ou Equipment Builder est indisponible : ajout désactivé.</small>"}
      </div>
      <label class="h0d-merchant-filter"><i class="fa-solid fa-magnifying-glass"></i>
        <input type="search" data-h0d-merchant-search placeholder="Rechercher une marchandise…" autocomplete="off"></label>
      <div class="h0d-merchant-offer-list" data-h0d-merchant-rows>
-       \${merchantEditorRows(state.offers||[])}
+       ${merchantEditorRows(state.offers||[])}
      </div>
      <p class="h0d-merchant-no-results" data-h0d-merchant-no-results hidden>Aucune marchandise ne correspond à cette recherche.</p>
    </section>
    <section data-h0d-merchant-panel="config" class="h0d-merchant-panel" hidden>
      <div class="h0d-merchant-setting">
        <div><strong>Rôle marchand</strong><small>Ce personnage ou conteneur propose un stock commercial aux PJ.</small></div>
-       <input type="checkbox" name="enabled" data-h0d-merchant-enabled \${state.enabled?"checked":""} aria-label="Activer le rôle marchand">
+       <input type="checkbox" name="enabled" data-h0d-merchant-enabled ${state.enabled?"checked":""} aria-label="Activer le rôle marchand">
      </div>
      <fieldset class="h0d-merchant-payment">
        <legend>Mode de paiement</legend>
-       <label><input type="radio" name="paymentMode" value="resources-only" \${selection==="resources-only"?"checked":""}>
+       <label><input type="radio" name="paymentMode" value="resources-only" ${selection==="resources-only"?"checked":""}>
          Ressources uniquement</label>
-       <label><input type="radio" name="paymentMode" value="tokens-first" \${selection==="tokens-first"?"checked":""}>
+       <label><input type="radio" name="paymentMode" value="tokens-first" ${selection==="tokens-first"?"checked":""}>
          Jetons de Reconnaissance prioritaires, puis ressources complémentaires</label>
        <p>Les prix ne changent pas. Les ressources sont valorisées à partir de leurs fiches, selon les règles existantes.</p>
      </fieldset>
@@ -125,7 +125,7 @@ export function merchantEditorContent({actorName,state,catalogueSource,builderOp
      <label><input type="checkbox" name="publishAfterSave"> Publier aussi la vitrine aux joueurs</label>
      <small>Les modifications ne sont appliquées qu'après « Enregistrer ».</small>
    </footer>
- </div>\`;
+ </div>`;
 }
 
 // Mutations du formulaire uniquement, aucune écriture sur l'Actor.
