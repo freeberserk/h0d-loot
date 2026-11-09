@@ -202,12 +202,14 @@ Hooks.once("ready", async () => {
     }),
     diagnose: () => foundry.utils.deepClone(compendiumStatus),
     diagnoseOpen:diagnosePlayerLoot,
+    convertExistingPieces:convertExistingReceivedParts,
     ...merchantAPI
   };
 
   game.h0dMerchant={...merchantAPI};
   // Point d'entrée indépendant de la barre des contrôles pour un test macro PJ.
-  game.h0dLoot={open:openLootForCurrentSelection,diagnoseOpen:diagnosePlayerLoot};
+  game.h0dLoot={open:openLootForCurrentSelection,diagnoseOpen:diagnosePlayerLoot,
+    convertExistingPieces:convertExistingReceivedParts};
   try {
     await loadLibrary();
     startupStatus.resourcesReady=resourceLibrary.size>0;
@@ -1453,6 +1455,113 @@ async function requestClaim(messageId, entryId, quantity) {
     game.socket.emit(SOCKET, payload);
   }
 }
+
+// Source identifiable d'une pièce transférée physiquement :
+// 1) composant machine contenant son champ H0D_Composant_Loot exact ;
+// 2) Objet PieceMachine créé par H0D Loot avec provenance source vérifiable.
+// Aucun rapprochement par simple nom d'objet n'est autorisé.
+function salvageResourceForReceivedItem(item) {
+  if(!item?.parent||!isPlayerCharacterActor(item.parent))return null;
+  const p=item.system?.props||{};
+  if(item.system?.template==="H0DCompMach00001")
+    return canonicalMachinePartResource(p,item.name);
+  if(item.system?.template!==OBJECT_TEMPLATE_ID||norm(p.H0D_Objet_Type)!=="piecemachine"||
+     item.getFlag?.(MODULE_ID,"machinePart")!==true)return null;
+
+  const declared=String(item.getFlag(MODULE_ID,"sourceLootName")||"").trim();
+  if(declared)return resourceByName.get(norm(declared))||null;
+
+  const sourceId=item.getFlag(MODULE_ID,"sourceItemId");
+  const origin=norm(p.H0D_Objet_Origine);
+  if(!sourceId||!origin)return null;
+  const actors=[
+    ...Array.from(game.actors?.contents||[]),
+    ...Array.from(canvas?.tokens?.placeables||[]).map(token=>token.actor).filter(Boolean)
+  ];
+  const matched=new Map();
+  for(const sourceActor of actors){
+    const sourceItem=sourceActor.items?.get?.(sourceId);
+    if(!sourceItem||norm(sourceItem.name)!==norm(item.name)||
+       norm(sourceItem.system?.props?.H0D_Composant_Origine)!==origin)continue;
+    const target=canonicalMachinePartResource(sourceItem.system.props,sourceItem.name);
+    if(target)matched.set(target.id,target);
+  }
+  // En cas de plusieurs correspondances différentes, ne rien décider.
+  return matched.size===1?[...matched.values()][0]:null;
+}
+
+async function convertReceivedMachinePart(item,{automatic=false}={}){
+  if(!isPrimaryGM()||!startupStatus.resourcesReady)return false;
+  const actor=item.parent;
+  const resource=salvageResourceForReceivedItem(item);
+  if(!resource)return false;
+  const qtyField=item.system?.template===OBJECT_TEMPLATE_ID?"H0D_Objet_Quantite":null;
+  const quantity=qtyField?Number(item.system?.props?.[qtyField]??1):1;
+  if(!Number.isSafeInteger(quantity)||quantity<1||quantity>1000)
+    throw new Error("Quantité du composant invalide : "+item.name);
+  const previous=actor.items.find(i=>i.system?.template===RESOURCE_TEMPLATE_ID&&(
+    i.getFlag?.(MODULE_ID,"resourceId")===resource.id || norm(i.name)===norm(resource.name)
+  ));
+  const before=previous?.system?.props?.H0D_Ressource_Quantite;
+  let result;
+  try{
+    result=await addResourceToActor(actor,resource.id,quantity);
+    await item.delete();
+    ui.notifications?.info("H0D Loot : "+item.name+" converti en "+quantity+" × "+resource.name+
+      (automatic?" lors du transfert.":"."));
+    return true;
+  }catch(err){
+    // Rollback du crédit si la suppression de l'objet physique échoue.
+    if(result)try{
+      if(previous)await previous.update({"system.props.H0D_Ressource_Quantite":before});
+      else await result.delete();
+    }catch(rollbackErr){
+      console.error("H0D Loot | compensation de conversion impossible",rollbackErr);
+      ui.notifications?.error("H0D : conversion partielle, vérifier manuellement "+actor.name+
+        " ("+item.name+" et "+resource.name+").");
+    }
+    throw err;
+  }
+}
+
+async function convertExistingReceivedParts(){
+  if(!game.user?.isGM)throw new Error("Réservé au MJ.");
+  const token=(canvas?.tokens?.controlled||[]).find(t=>isPlayerCharacterActor(t.actor));
+  if(!token) return ui.notifications?.warn("H0D : sélectionne le token d'un PJ pour examiner ses pièces machine.");
+  const actor=token.actor;
+  const matches=actor.items.filter(i=>salvageResourceForReceivedItem(i));
+  if(!matches.length)return ui.notifications?.info("H0D : aucune pièce machine convertissable sans ambiguïté pour "+actor.name+".");
+  const preview=matches.map(item=>{
+    const res=salvageResourceForReceivedItem(item);
+    return "<li>"+foundry.utils.escapeHTML(item.name)+" → "+foundry.utils.escapeHTML(res.name)+"</li>";
+  }).join("");
+  const accept=await foundry.applications.api.DialogV2.confirm({
+    window:{title:"H0D — Corriger les pièces machine déjà reçues"},
+    content:"<p>"+matches.length+" pièce(s) déjà dans l'inventaire de "+
+      foundry.utils.escapeHTML(actor.name)+" possèdent une correspondance de ressource explicite.</p><ul>"+
+      preview+"</ul><p><strong>Les objets physiques seront remplacés par les ressources listées.</strong>"+
+      " Les pièces sans source fiable sont conservées.</p>"
+  });
+  if(!accept)return;
+  let changed=0,failed=0;
+  for(const item of matches)try{
+    if(await convertReceivedMachinePart(item))changed++;
+  }catch(err){failed++;console.error("H0D Loot | conversion ancienne pièce",item.name,err);}
+  ui.notifications?.[failed?"warn":"info"]?.("H0D : "+changed+" pièce(s) convertie(s), "+failed+" erreur(s).");
+  return {changed,failed};
+}
+
+Hooks.on("createItem",item=>{
+  // Les drops réalisés par le MJ sur les PJ passent aussi par ce chemin.
+  // Détection de la pièce à partir de sa source vérifiée, pas de son nom libre.
+  if(!isPrimaryGM()||!startupStatus.resourcesReady||!isPlayerCharacterActor(item.parent))return;
+  if(!salvageResourceForReceivedItem(item))return;
+  Promise.resolve(convertReceivedMachinePart(item,{automatic:true})).catch(err=>{
+    console.error("H0D Loot | conversion automatique impossible",item.name,err);
+    ui.notifications?.error("H0D : "+item.name+" n'a pas pu être converti en ressource ("+
+      String(err?.message||err)+").");
+  });
+});
 
 function isPlayerCharacterActor(actor) {
   const p = actor?.system?.props ?? {};
