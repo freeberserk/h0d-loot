@@ -86,9 +86,11 @@ const openCarcass=new Function("game","SOCKET","resolveTokenDocument","getTokenL
   async(_token,_loot,options)=>received.push(options),()=>false,async()=>{}, {error:()=>{}}
 );
 await openCarcass({userId:"PLAYER",tokenUuid:"Scene.SCENE.Token.T"});
-assert.equal(received.length,1);
+assert.equal(received.length,2,"Publication puis accusé de réception.");
 assert.equal(received[0].recipientUserId,"PLAYER");
 assert.equal(received[0].privateToUser,true);
+assert.equal(received[1].type,"carcass-open-result");
+assert.equal(received[1].ok,true);
 
 // Le MJ peut traiter une prise issue d'une carte privée qui ne figure pas dans son cache Chat.
 const claimSource=slice("async function processClaimSerialized","function claimRecord");
