@@ -1,3 +1,14 @@
+## v0.6.25 — Refonte visuelle de la fenêtre de gestion du marchand
+- L'éditeur MJ **Stock marchand** présente désormais deux onglets : **Stock et marchandises** (par défaut) et **Configuration**.
+- Inventaire en cartes compactes avec recherche instantanée, résumé des notes, stock, prix et indication des lots conditionnés ; édition détaillée dépliable.
+- Ajout depuis les définitions du Catalogue/Builder ou saisie d'une **clé de référence exacte**, sans création d'articles non livrables ; quantités et prix validés avant ajout.
+- Actions par offre : modifier, dupliquer et marquer pour suppression (annulable tant que la fenêtre n'est pas enregistrée). Les indices des offres restent stables même lorsque la liste est filtrée.
+- Panneau Configuration : rôle marchand, modes de paiement existants, gestion exceptionnelle de l'import de Senn, et note sur la liaison Coffre ↔ Marchand prévue séparément.
+- Bouton Enregistrer du dialogue disponible au pied de fenêtre ; case facultative « Publier aussi la vitrine aux joueurs ». L'import complet du stock de Senn est séparé de la sauvegarde normale et exige toujours confirmation.
+- **Compatibilité :** toutes les références, quantités, valeurs, conditionnements, noms et notes sont conservés ; ancien buyerId, historique de troc et paramètres annexes laissés intacts. Une seule écriture du flag marchand à la sauvegarde normale ; aucune écriture tant que l'utilisateur modifie ou annule.
+- Protection contre les écrasements de ventes : une sauvegarde est refusée si le stock a changé pendant que la fenêtre était ouverte.
+- Aucun changement du flux joueur, du troc, des jetons de reconnaissance ou du Catalogue. Tests automatiques de l'éditeur, de la validation et de la non-régression de commerce ; **essai en Foundry VTT 14** toujours nécessaire.
+
 ## v0.6.24 — Correction Foundry v14 de la fenêtre de troc
 
 - Répare l'erreur `config.content element must have no attributes` au clic **Troquer**.

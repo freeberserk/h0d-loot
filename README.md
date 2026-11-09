@@ -1,3 +1,17 @@
+## v0.6.25 — Gestion des marchands plus rapide
+
+Ouvre **Stock marchand** depuis l'Actor ou le coffre concerné. La nouvelle fenêtre (largeur initiale 925 px, redimensionnable) est divisée en **Stock et marchandises** et **Configuration**.
+
+Dans **Stock**, une recherche filtre les offres sans en supprimer aucune. Chaque carte affiche le nom, la note, le stock, le prix et, si nécessaire, le conditionnement du lot (par exemple flèches ×5). Le crayon ouvre les champs pour modifier quantité, prix, devise, nom et note ; les icônes permettent de dupliquer ou de marquer une offre pour suppression, avec annulation immédiate. **Ajouter un article** donne accès aux références visibles de H0D Catalogue ou à la saisie d'une clé exacte déjà définie ; une clé libre inconnue ne peut pas être enregistrée car Equipment Builder ne pourrait pas générer le gain du PJ.
+
+Dans **Configuration**, tu retrouves le rôle marchand et les deux modes de paiement actuels. L'ancienne association **Fiche acheteur** n'est plus exposée dans l'interface, mais sa valeur est conservée dans les flags de l'Actor en attendant une future association Coffre ↔ Marchand (chantier distinct). Le remplacement du stock entier par celui de **Senn** est isolé et demande une confirmation explicite ; l'import reste une action spéciale immédiatement enregistrée.
+
+Le bouton **Enregistrer** valide les champs puis écrit l'état marchand en une seule opération. La case **Publier aussi la vitrine aux joueurs** est indépendante. **Annuler** n'applique aucune modification d'édition. Si un PJ a acheté pendant que tu éditais le stock, la fenêtre refusera l'enregistrement afin de ne pas restaurer par erreur des quantités déjà vendues. Le commerce des joueurs, les jetons et les règles de troc ne sont pas modifiés par cette version.
+
+**Vérification conseillée dans BAC-à-SABLES :** ouvrir une liste longue, filtrer et modifier une offre, déplier et dupliquer une ligne, tester une suppression annulée, enregistrer puis rouvrir, vérifier le conditionnement d'un lot, tester Annuler et le remplacement Senn uniquement sur une copie. La validation GitHub ne prouve pas le rendu et les interactions réels sous Foundry VTT 14.
+
+---
+
 ## v0.6.24 — Correctif du dialogue de troc sous Foundry v14
 
 Le clic **Troquer** sur une offre de marchand ouvrait une erreur `config.content element must have no attributes`. La cause était la classe CSS `h0d-trade-root` directement appliquée au `<div>` HTMLElement remis à `DialogV2.wait`. Foundry v14 exige un élément racine **sans aucun attribut**.

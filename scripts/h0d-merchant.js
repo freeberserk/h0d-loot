@@ -1,4 +1,5 @@
 import {merchantCatalogueDefinitions} from "./h0d-catalogue-link.js";
+import {merchantEditorContent,bindMerchantEditor} from "./h0d-merchant-editor.js";
 // H0D Commerce — Stock marchand optionnel, indépendant des Items embarqués.
 // Aucun achat ni prélèvement automatique dans cette première étape.
 const NS="h0d-loot", FLAG="merchant";
@@ -89,38 +90,24 @@ export async function importCatalogueStock(actorValue,key="longue-corde-senn-p03
  await actor.setFlag(NS,FLAG,state);return clone(state);
 }
 
-function merchantEditorRows(offers){
- return offers.map((o,i)=>`<div class="h0d-merchant-line" style="display:grid;grid-template-columns:minmax(110px,2fr) 80px 90px 90px 50px;gap:6px;align-items:center;margin-bottom:5px">
- <input aria-label="Nom" name="name_${i}" value="${esc(o.name)}" title="Article">
- <input aria-label="Quantité" name="quantity_${i}" value="${esc(o.quantity??1)}" placeholder="1" title="Quantité : vide = 1">
- <input aria-label="Prix" name="price_${i}" value="${o.price===null?"":esc(o.price)}" placeholder="?" title="Prix : vide = à définir">
- <input aria-label="Monnaie" name="currency_${i}" value="${esc(o.currency)}" title="Monnaie">
- <label title="Supprimer"><input type="checkbox" name="remove_${i}"> ✕</label>
- </div><input name="reference_${i}" type="hidden" value="${esc(o.reference)}">
- <input name="notes_${i}" aria-label="Notes" value="${esc(o.notes)}" placeholder="Notes (facultatif)" style="width:100%;margin-bottom:9px"> `).join("");
-}
 function readNumber(value,label){
  if(value===undefined||value===null||String(value).trim()==="")return null;
  const n=Number(value);if(!Number.isFinite(n)||n<0)throw new Error(label+" doit être un nombre positif.");
  return n;
 }
-function readOffers(form,original,builderDefinitions=[]){
+function readOffers(form,allOffers){
  const result=[];
- for(let i=0;i<original.length;i++){
+ for(let i=0;i<allOffers.length;i++){
   if(form["remove_"+i]===true||form["remove_"+i]==="on")continue;
+  const original=allOffers[i];
   const quantity=readNumber(form["quantity_"+i],"Quantité")??1;
-  if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
-  result.push({reference:original[i].reference,name:form["name_"+i]||original[i].name,quantity,
-   perPurchase:original[i].perPurchase||1,
-   price:readNumber(form["price_"+i],"Prix"),currency:form["currency_"+i]||"jetons",notes:form["notes_"+i]||""});
- }
- const chosen=String(form.builderReference||"").trim();
- if(chosen){
-  const def=builderDefinitions.find(d=>d.key===chosen);
-  if(!def)throw new Error("Référence du catalogue introuvable : "+chosen);
-  const quantity=readNumber(form.builderQuantity,"Quantité Builder")??1;
-  if(quantity!==null&&!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
-  result.push({reference:def.key,name:def.name,quantity,perPurchase:1,price:readNumber(form.builderPrice,"Prix Builder"),currency:form.builderCurrency||"jetons",notes:"Référence de l’inventaire commun H0D (Catalogue prioritaire)"});
+  if(!Number.isSafeInteger(quantity))throw new Error("Quantité entière attendue.");
+  result.push({reference:original.reference,
+   name:String(form["name_"+i]||original.name),
+   quantity,perPurchase:original.perPurchase||1,
+   price:readNumber(form["price_"+i],"Prix"),
+   currency:String(form["currency_"+i]||"jetons"),
+   notes:String(form["notes_"+i]||"")});
  }
  return result;
 }
@@ -128,8 +115,6 @@ export async function openMerchant(actorValue){
  ensureGM();
  if(game.modules?.get("h0d-catalogue")?.active)await game.h0dCatalogue?.whenReady?.();
  const actor=actorOf(actorValue),state=merchantState(actor);
- const buyers=game.actors.contents.filter(a=>a.id!==actor.id&&a.type!=="_template");
- const options=['<option value="">Aucun PJ associé</option>',...buyers.map(a=>`<option value="${esc(a.id)}" ${state.buyerId===a.id?"selected":""}>${esc(a.name)}</option>`)].join("");
  const selector=merchantCatalogueDefinitions(game);
  const builderDefinitions=selector.definitions.sort((a,b)=>a.name.localeCompare(b.name,"fr"));
  const categoryLabels={weapon:"Armes",armor:"Armures",ammo:"Munitions",ammunition:"Munitions",object:"Objets",resource:"Ressources"};
@@ -145,46 +130,62 @@ export async function openMerchant(actorValue){
   const ai=categoryOrder.indexOf(a[0]),bi=categoryOrder.indexOf(b[0]);
   return (ai<0?99:ai)-(bi<0?99:bi)||a[0].localeCompare(b[0],"fr");
  }).map(([label,defs])=>`<optgroup label="${esc(label)}">${defs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)}</option>`).join("")}</optgroup>`).join("");
+ const drafts=[];
+ // Un élément DOM fournit un contenu de confiance à Foundry v14 :
+ // les data-attributs interactifs sont conservés lors du rendu du DialogV2.
+ const content=document.createElement("div");
+ content.innerHTML=merchantEditorContent({actorName:actor.name,state,catalogueSource:selector.source,
+   builderOptions,builderAvailable:builderDefinitions.length>0});
  const choice=await foundry.applications.api.DialogV2.input({
   window:{title:"H0D — Stock marchand : "+actor.name,resizable:true},
-  content:`<p>Stock commercial hors encombrement. Choisis une règle de paiement pour ce marchand ; les prix des articles restent ceux du stock.</p>
-   <div class="form-group"><label>Mode de paiement</label><select name="paymentMode" aria-label="Mode de paiement">
-     <option value="tokens-first" ${state.paymentMode==="tokens-first"?"selected":""}>Jetons prioritaires + ressources complémentaires</option>
-     <option value="resources-only" ${state.paymentMode!=="tokens-first"?"selected":""}>Ressources uniquement</option>
-   </select></div>
-   <p><small>Les Jetons de Reconnaissance sont prélevés directement en premier dans le premier mode. Le solde éventuel est couvert par la valeur de troc des ressources (sans taux de conversion universel). Un marchand existant conserve son ancien comportement tant que son mode n'est pas réenregistré.</small></p>
-   <div class="form-group"><label>Rôle Marchand</label><input type="checkbox" name="enabled" ${state.enabled?"checked":""}></div>
-   <div class="form-group"><label>Fiche acheteur</label><select name="buyer">${options}</select></div>
-   <div style="max-height:55vh;overflow-y:auto;padding:5px">
-   <p><strong>Marchandises (${state.offers.length})</strong> — quantité vide = 1 par défaut. Cocher ✕ pour retirer.</p>
-   ${merchantEditorRows(state.offers)}
-   <fieldset><legend>Ajouter depuis ${esc(selector.source)}</legend>
-   ${builderDefinitions.length?`<select name="builderReference" aria-label="Article du catalogue H0D"><option value="">— Choisir un article —</option>${builderOptions}</select>
-   <div style="display:flex;gap:6px;margin-top:5px"><input name="builderQuantity" placeholder="1" aria-label="Quantité Builder"><input name="builderPrice" placeholder="Prix ?" aria-label="Prix Builder"><input name="builderCurrency" value="jetons" aria-label="Monnaie Builder"></div>`:"<p>Références du catalogue indisponibles. Activer H0D Catalogue.</p>"}
-   </fieldset>
-   </div>
-   <div class="form-group"><label>Action</label><select name="operation">
-   <option value="save">Enregistrer les modifications</option>
-   <option value="import">Remplacer par le stock Senn</option>
-   <option value="publish">Enregistrer et publier la vitrine aux joueurs</option>
-   </select></div>`,
-  ok:{label:"Enregistrer",icon:"fa-solid fa-check"}
+  position:{width:925,height:715},
+  content,
+  render:(_event,dialog)=>{
+   dialog.element?.classList.add("h0d-merchant-window");
+   bindMerchantEditor(dialog,{state,definitions:builderDefinitions,drafts,
+    notify:message=>ui.notifications.warn("H0D : "+message),
+    importSenn:async currentDialog=>{
+     const yes=await foundry.applications.api.DialogV2.confirm({
+      window:{title:"Remplacer entièrement le stock ?"},
+      content:"<p>Toutes les offres actuelles seront remplacées par le stock canonique de Senn.</p>"+
+       "<p><strong>Les modifications non enregistrées de cette fenêtre seront perdues.</strong>"+
+       " Les données déjà sauvegardées seront remplacées après confirmation.</p>"
+     });
+     if(!yes)return;
+     try{
+      await importCatalogueStock(actor);
+      ui.notifications.info("H0D : stock de Senn importé pour "+actor.name);
+      await currentDialog.close();
+      actor.sheet?.render?.(true);
+     }catch(error){
+      ui.notifications.error("H0D : import impossible : "+String(error?.message||error));
+     }
+    }
+   });
+  },
+  ok:{label:"Enregistrer",icon:"fa-solid fa-floppy-disk"}
  });
  if(!choice)return null;
- if(choice.operation==="import"){
-  const yes=await foundry.applications.api.DialogV2.confirm({window:{title:"Remplacer le stock ?"},
-   content:"<p>Les offres actuelles seront remplacées par le stock de Senn. Cette action est irréversible sans sauvegarde.</p>"});
-  if(!yes)return null;
-  await importCatalogueStock(actor);
- }else{
-  // Validation complète avant écriture pour éviter un stock partiellement modifié.
-  const offers=readOffers(choice,state.offers,builderDefinitions);
-  await setMerchantOffers(actor,offers);
+ // Validation complète des anciennes et nouvelles lignes avant toute écriture.
+ // Un seul setFlag : pas de mise à jour partielle du mode, du rôle ou des offres.
+ const allOffers=[...state.offers,...drafts];
+ const offers=readOffers(choice,allOffers).map(normalizeOffer);
+ const mode=String(choice.paymentMode||"resources-only");
+ if(!PAYMENT_MODES.includes(mode))throw new Error("Mode de paiement marchand invalide.");
+ const current=merchantState(actor);
+ // Un PJ peut acheter durant l'édition. Ne jamais réintroduire dans le stock
+ // des lots vendus pendant l'ouverture de cette fenêtre.
+ if(JSON.stringify(current.offers)!==JSON.stringify(state.offers)){
+   ui.notifications.warn("H0D : le stock a changé pendant l'édition. Rouvre la fenêtre pour éviter d'écraser une vente.");
+   return null;
  }
- await assignMerchantBuyer(actor,choice.buyer||null);
- if(choice.operation!=="import")await setPaymentMode(actor,String(choice.paymentMode||"resources-only"));
- await setMerchantRole(actor,choice.operation==="import"?true:choice.enabled===true||choice.enabled==="on");
- if(choice.operation==="publish")await publishMerchant(actor);
+ const next={...current,offers,
+   enabled:choice.enabled===true||choice.enabled==="on",
+   paymentMode:mode,valueBarterEnabled:true};
+ // buyerId et toutes les autres métadonnées historiques restent inchangés.
+ await actor.setFlag(NS,FLAG,next);
+ if(choice.publishAfterSave===true||choice.publishAfterSave==="on")
+  await publishMerchant(actor);
  actor.sheet?.render?.(true);
  ui.notifications.info("H0D : stock marchand enregistré pour "+actor.name);
  return getMerchant(actor);

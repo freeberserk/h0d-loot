@@ -40,6 +40,10 @@ assert(lootSource.includes("applyKnownResourceCharge(source.system.props,resourc
 assert(lootSource.includes("catalogueKey:canon.key??null"));
 assert(lootSource.includes("equipmentCatalogueAudit:()=>("));
 assert(merchantSource.includes("merchantCatalogueDefinitions(game)"));
-assert(merchantSource.includes("Ajouter depuis \${esc(selector.source)}"));
+const merchantEditorSource=readFileSync(new URL("../scripts/h0d-merchant-editor.js",import.meta.url),"utf8");
+assert(merchantEditorSource.includes("Référence de ${esc(catalogueSource)}"),
+  "La nouvelle fenêtre doit afficher les références provenant du Catalogue.");
+assert(merchantSource.includes("builderOptions"),
+  "Les options provenant du Catalogue doivent être proposées au dialogue.");
 assert(merchantSource.includes("getStockResolved(key)"),"Le stock exact Senn reste dans le Catalogue.");
 console.log("OK — Marchand Catalogue, exclus stock interdits, ressources canoniques uniquement sur nouvelles prises, stocks Senn préservés.");
