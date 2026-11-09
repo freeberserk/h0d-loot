@@ -42,7 +42,8 @@ export function merchantEditorRows(offers,startIndex=0){
  }).join("");
 }
 
-export function merchantEditorContent({actorName,state,catalogueSource,builderOptions,builderAvailable}){
+export function merchantEditorContent({actorName,state,catalogueSource,builderOptions,builderAvailable,
+  isContainer=false,linkedMerchantName=null}){
  const count=offerCount(state.offers||[]);
  const selection=state.paymentMode==="tokens-first"?"tokens-first":"resources-only";
  return `<div class="h0d-merchant-editor" data-h0d-merchant-editor>
@@ -111,10 +112,18 @@ export function merchantEditorContent({actorName,state,catalogueSource,builderOp
          Jetons de Reconnaissance prioritaires, puis ressources complémentaires</label>
        <p>Les prix ne changent pas. Les ressources sont valorisées à partir de leurs fiches, selon les règles existantes.</p>
      </fieldset>
-     <div class="h0d-merchant-legacy-info">
-       <strong>Association du marchand</strong>
-       <p>La liaison Coffre ↔ Marchand sera ajoutée séparément. L'ancienne association « Fiche acheteur » est conservée dans les données sans être modifiée ici.</p>
-     </div>
+     ${isContainer?`<div class="h0d-merchant-legacy-info">
+       <strong>Marchand associé</strong>
+       <p>${linkedMerchantName
+         ?"Ce coffre utilise actuellement le stock unique de <strong>"+esc(linkedMerchantName)+"</strong>. Les ventes et le troc sont enregistrés sur cet Actor."
+         :"Aucun marchand associé : ce coffre utilise encore son stock local, comme auparavant."}</p>
+       <div class="h0d-merchant-link-actions">
+         <button type="button" data-h0d-merchant-action="configure-link"><i class="fa-solid fa-link"></i> Configurer la liaison</button>
+         ${linkedMerchantName?'<button type="button" data-h0d-merchant-action="open-merchant-actor"><i class="fa-solid fa-user-gear"></i> Ouvrir la fiche du marchand</button>':""}
+       </div>
+       <p><small>L'ancien champ « Fiche acheteur » reste conservé mais n'est plus utilisé pour associer le stock.</small></p>
+     </div>`
+     :'<div class="h0d-merchant-legacy-info"><strong>Stock du marchand</strong><p>Cet Actor possède ses offres. Un coffre peut lui être associé pour permettre le troc sur la carte.</p></div>'}
      <fieldset class="h0d-merchant-import">
        <legend>Gestion exceptionnelle du stock</legend>
        <p>Remplacer entièrement le stock par les offres canoniques de Senn. Les modifications non enregistrées dans cette fenêtre seront perdues.</p>
@@ -130,7 +139,7 @@ export function merchantEditorContent({actorName,state,catalogueSource,builderOp
 
 // Mutations du formulaire uniquement, aucune écriture sur l'Actor.
 // "drafts" est utilisé exclusivement au moment de valider le formulaire.
-export function bindMerchantEditor(dialog,{state,definitions,drafts,importSenn,notify}){
+export function bindMerchantEditor(dialog,{state,definitions,drafts,importSenn,configureLink,openMerchantSheet,notify}){
  const root=dialog.element?.querySelector("[data-h0d-merchant-editor]");
  if(!root)return;
  const rows=root.querySelector("[data-h0d-merchant-rows]");
@@ -259,6 +268,10 @@ export function bindMerchantEditor(dialog,{state,definitions,drafts,importSenn,n
      find("[data-h0d-add-note]").value="";
    }else if(action==="import"){
      await importSenn(dialog);
+   }else if(action==="configure-link"){
+     await configureLink?.(dialog);
+   }else if(action==="open-merchant-actor"){
+     await openMerchantSheet?.();
    }
  });
  root.addEventListener("input",event=>{
