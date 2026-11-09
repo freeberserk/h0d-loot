@@ -30,6 +30,7 @@ jobs:
           node tests/module-socket-manifest.mjs
           node tests/catalogue-link.mjs
           node tests/vendor-commerce.mjs
+          node tests/merchant-editor-ui.mjs
           node tests/payment-modes.mjs
           node tests/trade-live-dialog.mjs
           node tests/trade-dialog-interaction.mjs
@@ -40,6 +41,7 @@ jobs:
           node --check scripts/h0d-salvage-rules.js
           node --check scripts/h0d-harvest.js
           node --check scripts/h0d-merchant.js
+          node --check scripts/h0d-merchant-editor.js
           node --check scripts/h0d-container.js
           node --check scripts/h0d-merchant-tiles.js
           node --check scripts/h0d-catalogue-link.js
