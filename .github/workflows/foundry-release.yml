@@ -32,6 +32,7 @@ jobs:
           node tests/vendor-commerce.mjs
           node tests/merchant-editor-ui.mjs
           node tests/merchant-link.mjs
+          node tests/merchant-link-dialog-content.mjs
           node tests/payment-modes.mjs
           node tests/trade-live-dialog.mjs
           node tests/trade-dialog-interaction.mjs

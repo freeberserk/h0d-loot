@@ -2,7 +2,7 @@
   "id": "h0d-loot",
   "title": "H0D Loot",
   "description": "H0D Loot : récupération, commerce, paiement prioritaire en Jetons de Reconnaissance et complément en ressources.",
-  "version": "0.6.27",
+  "version": "0.6.28",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"

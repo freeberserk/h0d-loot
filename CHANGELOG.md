@@ -1,3 +1,10 @@
+## v0.6.28 — Ouverture de la fenêtre « Associer un marchand » sous Foundry VTT 14
+- Correction du message `Error: config.content element must have no attributes` rencontré en MJ à l'ouverture de la seconde fenêtre de liaison Coffre ↔ Marchand.
+- Le composant `DialogV2.input` exige un élément `content` sans attribut ; la classe CSS `h0d-merchant-link-dialog` est désormais portée par un élément enfant, conservant la mise en forme et la sélection des champs.
+- Test de non-régression reproduisant l'interdiction d'attributs sur l'élément `content` et vérifiant la présence du sélecteur de PNJ marchand actif.
+- Aucun changement des stocks, offres, prix, modes de paiement, transactions, permissions ou flags des Actors.
+- Vérifier dans BAC-à-SABLES : sélectionner le coffre en MJ, H0D Commerce → Configuration → Configurer la liaison → confirmer le changement, puis choisir le marchand dans la seconde fenêtre.
+
 ## v0.6.27 — Lecture directe et fraîche de H0D Catalogue
 
 - Vente : résolution canonique à chaque transaction, prototype actualisé avant remise au PJ, sans recharger le stock de Senn.
