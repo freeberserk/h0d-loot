@@ -1,3 +1,11 @@
+## v0.6.27 — Livraison depuis H0D Catalogue uniquement
+
+- Le marchand consulte **directement** H0D Catalogue pour les catégories et les références d'Items. Aucune liste de secours depuis Equipment Builder si le Catalogue est indisponible.
+- À chaque achat, H0D Loot demande à Equipment Builder d'**actualiser le prototype généré** depuis le Catalogue avant de le transférer (`mode:"update"` au lieu de `skip`).
+- Pour les nouvelles ressources de butin, absence de correspondance canonique = refus explicite, sans version de secours. Le compendium sert au support CSB / à l'illustration ; les caractéristiques et charges validées du Catalogue priment. Pas de recalcul de charge local sur ces nouveaux transferts.
+- Ni la liste des offres, ni leurs prix, quantités, conditionnements ou stocks déjà vendus ne sont réimportés ni réinitialisés. Les Items déjà dans les inventaires PJ restent inchangés.
+- Exige H0D Catalogue et H0D Equipment Builder ; mettre à jour ces deux modules avant H0D Loot.
+
 ## v0.6.26 — Associer un coffre à un marchand sans casser le troc existant
 
 Le coffre H0D peut agir comme **point physique d'interaction**, avec le stock unique et les prix sur un **Actor marchand** distinct.
