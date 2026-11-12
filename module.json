@@ -29,7 +29,7 @@
         "type": "module",
         "manifest": "https://github.com/freeberserk/H0D-catalogue/releases/latest/download/module.json",
         "compatibility": {
-          "minimum": "0.1.13"
+          "minimum": "0.1.16"
         }
       },
       {
