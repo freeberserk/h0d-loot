@@ -1,3 +1,10 @@
+## v0.6.29 — Sécurisation de « Tout récupérer » (préparation)
+
+- Refus du lot **avant tout transfert** lorsqu'une ressource ou pièce rare n'est pas résolue par H0D Catalogue, ou lorsque la source d'un équipement est introuvable.
+- Enregistrement des prises ligne par ligne : une interruption ultérieure ne remet pas les lignes précédentes à disposition. Les erreurs de persistance pendant une ligne restent signalées et nécessitent une vérification du PJ.
+- Aucune modification automatique des inventaires ou des stocks de marchands ; validation sur BAC-à-SABLES nécessaire.
+- La branche de correctif du Catalogue 0.1.16 doit être installée et testée avant d'exercer les 45 ressources historiques.
+
 ## v0.6.28 — Fenêtre d'association Coffre ↔ Marchand
 
 Correction de la fenêtre « Associer un marchand » sous Foundry VTT 14. Dans v0.6.27, le clic « Configurer la liaison » affichait la première confirmation puis échouait sur `Error: config.content element must have no attributes`. Le dialogue d'association est maintenant construit avec un conteneur de contenu sans attribut et un panneau interne pour les styles.
