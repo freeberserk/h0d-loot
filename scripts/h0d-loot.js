@@ -1749,6 +1749,41 @@ async function processClaim(data) {
     if (pendingClaimQueues.get(key)===tail) pendingClaimQueues.delete(key);
   }
 }
+// Le contrôle préalable ne modifie aucun Item ni stock : refuser le lot entier
+// avant le premier transfert si une ressource du Catalogue est inconnue.
+function preflightBulkTransfers(entries,tokenDoc){
+  const catalogue=catalogueApi(game);
+  const validateResource=resourceId=>{
+    const resource=resourceLibrary.get(resourceId);
+    if(!resource)throw new Error(`Ressource ${resourceId} absente de la bibliothèque H0D`);
+    const canonical=resolveCatalogueResource(resource,catalogue);
+    if(canonical.status!=="canonique"||!canonical.definition)
+      throw new Error("Ressource non référencée dans H0D Catalogue : "+resource.name);
+  };
+  for(const entry of entries){
+    if(entry.kind==="resource"){
+      validateResource(entry.resourceId);
+    }else if(entry.kind==="catalogue-resource"){
+      if(!exactRareCatalogueDefinition(entry.catalogueKey))
+        throw new Error("Référence rare absente ou non disponible dans le H0D Catalogue : "+entry.catalogueKey);
+    }else if(entry.kind==="embedded"){
+      const source=tokenDoc?.actor??tokenDoc?.object?.actor;
+      if(!source?.items?.get(entry.sourceItemId))
+        throw new Error("Équipement source introuvable sur la carcasse : "+entry.name);
+    }else if(entry.kind==="machine-piece"){
+      const mapped=canonicalMachinePartResource(entry.partProps||{},entry.name);
+      if(mapped&&!entry.deteriorated&&Number(entry.sourceHp)!==0
+        &&entry.partProps?.H0D_Composant_Conserver_Entier!==true){
+        validateResource(mapped.id);
+      }else if(!game.items.get(OBJECT_TEMPLATE_ID)){
+        throw new Error("Template H0D Objet absent : installer Template Manager avant le prélèvement.");
+      }
+    }else{
+      throw new Error("Type de butin non transférable : "+entry.kind);
+    }
+  }
+}
+
 async function processClaimSerialized(data) {
   const respond = (ok, message) => {
     if (data.userId === game.user.id) {
@@ -1786,13 +1821,23 @@ async function processClaimSerialized(data) {
     if (data.quantity === "all-card") {
       const transfers = loot.items.filter(i => isTransferable(i) && Number(i.quantity) > 0);
       if (!transfers.length) return respond(false, "H0D Loot : plus rien à récupérer.");
+      // Une référence de Catalogue manquante interdit tout transfert du lot.
+      preflightBulkTransfers(transfers,tokenDoc);
+      let delivered=0;
       for (const entry of transfers) {
         const qty = Math.max(0, Math.floor(Number(entry.quantity)||0));
-        if (qty) await transferEntryToActor(actor, entry, qty, tokenDoc);
-        entry.quantity = 0;
-        loot.claims.push(claimRecord(user, actor, entry, qty));
+        try {
+          if (qty) await transferEntryToActor(actor, entry, qty, tokenDoc);
+          entry.quantity = 0;
+          loot.claims.push(claimRecord(user, actor, entry, qty));
+          // Point de reprise : une erreur sur la ligne suivante n'offre pas à
+          // nouveau les lignes déjà prises.
+          await persistLoot(message, loot, tokenDoc);
+          delivered++;
+        } catch (error) {
+          throw new Error(`Récupération interrompue sur « ${entry.name} » : ${delivered} ligne(s) précédente(s) enregistrée(s). Vérifie l'inventaire du PJ avant toute nouvelle tentative. (${error?.message||error})`);
+        }
       }
-      await persistLoot(message, loot, tokenDoc);
       return respond(true, `H0D Loot : tout le butin disponible a été ajouté à ${actor.name}.`);
     }
 
