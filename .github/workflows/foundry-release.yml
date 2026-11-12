@@ -24,6 +24,7 @@ jobs:
           node tests/container-token-stock.mjs
           node tests/player-autonomous-loot.mjs
           node tests/player-carcass-claw-pm.mjs
+          node tests/batch-preflight.mjs
           node tests/component-source-and-ready.mjs
           node tests/salvage-rules.mjs
           node tests/player-open-button.mjs

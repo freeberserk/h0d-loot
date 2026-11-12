@@ -2,7 +2,7 @@
   "id": "h0d-loot",
   "title": "H0D Loot",
   "description": "H0D Loot : récupération, commerce, paiement prioritaire en Jetons de Reconnaissance et complément en ressources.",
-  "version": "0.6.28",
+  "version": "0.6.29",
   "compatibility": {
     "minimum": "14",
     "verified": "14.368"
@@ -29,7 +29,7 @@
         "type": "module",
         "manifest": "https://github.com/freeberserk/H0D-catalogue/releases/latest/download/module.json",
         "compatibility": {
-          "minimum": "0.1.13"
+          "minimum": "0.1.16"
         }
       },
       {
