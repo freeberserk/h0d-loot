@@ -56,4 +56,37 @@ await handler({userId:"P",tokenUuid:"Scene.S.Token.T",lootId:"loot",quantity:"al
 assert.equal(transfers.length,2);
 assert.deepEqual(saved,[[0,1],[0,0]],"Chaque ligne confirmée est sauvegardée immédiatement");
 assert.equal(msgs.at(-1).ok,true);
-console.log("OK — Prévalidation du lot, aucune prise avant erreur de Catalogue, sauvegarde par ligne.");
+
+// Régression : l'échec d'une deuxième ligne ne remet jamais la première au butin.
+const partialLoot={
+ lootId:"partial",items:[
+  {entryId:"first",kind:"resource",resourceId:"pm",name:"Plaques métalliques",quantity:1},
+  {entryId:"second",kind:"resource",resourceId:"pm",name:"Plaques métalliques",quantity:1}
+ ],claims:[]
+};
+const partialMessages=[],partialSaved=[],partialTransfers=[];
+const partialGame={...localGame,socket:{emit:(_channel,payload)=>partialMessages.push(payload)}};
+const partialHandler=new Function(
+ "game","ui","MODULE_ID","SOCKET","resolveRecipientActor","actorOwnedByUser",
+ "resolveTokenDocument","getTokenLoot","migrateLoot","isTransferable",
+ "transferEntryToActor","persistLoot","claimRecord","preflightBulkTransfers","console",
+ slice("async function processClaimSerialized","function claimRecord")+";return processClaimSerialized;"
+)(partialGame,{notifications:{}},"h0d-loot","module.h0d-loot",
+ async()=>actor,()=>true,async()=>({uuid:"Scene.S.Token.T"}),
+ async()=>partialLoot,()=>null,e=>e.kind==="resource",
+ async(_actor,entry,qty)=>{
+  if(entry.entryId==="second")throw new Error("Erreur simulée sur la seconde ligne");
+  partialTransfers.push([entry.name,qty]);
+ },
+ async()=>partialSaved.push(partialLoot.items.map(e=>e.quantity)),
+ (_user,_actor,entry,qty)=>({entryId:entry.entryId,quantity:qty}),
+ preflight,{error:()=>{}});
+await partialHandler({userId:"P",tokenUuid:"Scene.S.Token.T",lootId:"partial",quantity:"all-card"});
+assert.equal(partialTransfers.length,1);
+assert.deepEqual(partialSaved,[[0,1]],"La première prise reste acquise avant l'échec");
+assert.deepEqual(partialLoot.items.map(e=>e.quantity),[0,1]);
+assert.equal(partialLoot.claims.length,1);
+assert.equal(partialMessages.at(-1).ok,false);
+assert.match(partialMessages.at(-1).message,/1 ligne\(s\) précédente\(s\) enregistrée\(s\)/);
+
+console.log("OK — Prévalidation du lot, sauvegarde par ligne et interruption partielle sans reprise du stock déjà pris.");
